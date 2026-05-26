@@ -124,7 +124,7 @@ export default function Page() {
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-psa-orange/15 border border-psa-orange/30">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-psa-orange" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-psa-orange-hover">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white">
                   PSA · Operação
                 </span>
               </div>
@@ -133,7 +133,7 @@ export default function Page() {
                 <br />
                 <span className="text-psa-orange">Dashboard.</span>
               </h1>
-              <p className="mt-4 text-sm text-white/70 max-w-md">
+              <p className="mt-4 text-sm text-white/85 max-w-md">
                 Acompanhamento da operação dos farmers no Funil de Vendas B2B.
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function Page() {
               </div>
 
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
                   Receita
                 </span>
                 <div className="inline-flex rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
@@ -154,7 +154,7 @@ export default function Page() {
                     className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
                       mode === "bruto"
                         ? "bg-psa-orange text-white shadow-md"
-                        : "text-white/70 hover:text-white"
+                        : "text-white/85 hover:text-white"
                     }`}
                   >
                     Bruto
@@ -164,7 +164,7 @@ export default function Page() {
                     className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
                       mode === "liquido"
                         ? "bg-psa-orange text-white shadow-md"
-                        : "text-white/70 hover:text-white"
+                        : "text-white/85 hover:text-white"
                     }`}
                   >
                     Líquido
@@ -191,7 +191,7 @@ export default function Page() {
                     className={`relative px-5 py-3 text-sm font-semibold transition-colors rounded-t-xl ${
                       active
                         ? "bg-psa-canvas text-psa-ink"
-                        : "text-white/70 hover:text-white hover:bg-white/5"
+                        : "text-white/85 hover:text-white hover:bg-white/5"
                     }`}
                   >
                     {t.label}
@@ -203,7 +203,7 @@ export default function Page() {
               })}
             </div>
             {view?.leader && (
-              <div className="pb-3 text-xs text-white/60">
+              <div className="pb-3 text-xs text-white/85">
                 Líder da squad{" "}
                 <span className="font-bold text-white">{view.leader}</span>
               </div>

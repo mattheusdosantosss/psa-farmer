@@ -30,11 +30,12 @@ export default function KpiCard({
       : "bg-psa-ink";
 
   // Tamanhos
-  const padding = featured ? "p-6" : "p-5";
-  // Featured: número grande e responsivo, mas SEMPRE caberá no container
-  // graças ao tamanho relativo à largura do próprio card (cqw) com guardrails.
+  const padding = featured ? "p-5" : "p-5";
+  // O card featured é mais LARGO (col-span-2), então usar cqw daria um número
+  // muito grande. Para o featured fixamos uma faixa mais discreta, alinhada
+  // visualmente com os cards normais.
   const numberSize = featured
-    ? "text-[clamp(1.75rem,4cqw,2.75rem)]"
+    ? "text-[clamp(1.5rem,2.4cqw,2rem)]"
     : "text-[clamp(1.5rem,5cqw,2.125rem)]";
 
   return (
@@ -49,7 +50,7 @@ export default function KpiCard({
         </span>
       </div>
 
-      <div className={`${featured ? "mt-4" : "mt-3"} min-h-[42px] flex items-baseline min-w-0`}>
+      <div className="mt-3 min-h-[42px] flex items-baseline min-w-0">
         {loading ? (
           <span className="skeleton h-9 w-24 inline-block" />
         ) : (
@@ -62,7 +63,7 @@ export default function KpiCard({
       </div>
 
       {hint && (
-        <div className={`${featured ? "mt-3" : "mt-2"} text-xs text-psa-ink-soft`}>
+        <div className="mt-2 text-xs text-psa-ink-soft">
           {loading ? <span className="skeleton h-3 w-32 inline-block" /> : hint}
         </div>
       )}
