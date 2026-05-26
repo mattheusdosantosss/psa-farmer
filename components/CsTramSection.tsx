@@ -3,9 +3,6 @@ import KpiCard from "./KpiCard";
 
 const num = (n: number) => n.toLocaleString("pt-BR");
 
-const pct = (n: number) =>
-  (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
-
 const initials = (nome: string) => {
   const parts = nome.trim().split(/\s+/);
   const first = parts[0]?.[0] || "?";
@@ -35,7 +32,6 @@ const HEAD = (
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Concluídos</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Cancelados</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Em trâmite</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Tx Conclusão</th>
     </tr>
   </thead>
 );
@@ -49,7 +45,7 @@ function SkeletonRow() {
           <span className="skeleton h-4 w-32 inline-block" />
         </div>
       </td>
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <td key={i} className="p-4 text-right">
           <span className="skeleton h-4 w-12 inline-block" />
         </td>
@@ -181,9 +177,6 @@ export default function CsTramSection({ topo, rows, loading = false }: Props) {
                     </td>
                     <td className="p-4 text-right tabular-nums text-psa-ink-soft">
                       {f.csEmTramite}
-                    </td>
-                    <td className="p-4 text-right tabular-nums font-medium text-psa-ink">
-                      {pct(f.csTxConclusao)}
                     </td>
                   </tr>
                 ))}
