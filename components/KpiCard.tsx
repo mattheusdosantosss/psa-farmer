@@ -31,7 +31,7 @@ export default function KpiCard({
     <div className="group rounded-2xl bg-psa-surface border border-psa-line p-5 shadow-card hover:shadow-card-hover transition-shadow">
       <div className="flex items-center gap-2">
         <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotColor}`} />
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-psa-muted">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-psa-ink-soft">
           {label}
         </span>
       </div>
@@ -47,7 +47,7 @@ export default function KpiCard({
       </div>
 
       {hint && (
-        <div className="mt-2 text-xs text-psa-muted">
+        <div className="mt-2 text-xs text-psa-ink-soft">
           {loading ? <span className="skeleton h-3 w-32 inline-block" /> : hint}
         </div>
       )}

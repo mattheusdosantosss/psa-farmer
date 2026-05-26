@@ -155,24 +155,36 @@ const DEAL_PROPS = [
   "hs_lastmodifieddate",
 ];
 
+// Pequeno delay entre páginas para respeitar o rate limit do HubSpot
+// (100 req/s no plano padrão; ficamos bem abaixo disso).
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * Busca TODOS os deals que tenham:
- * - sdrfarmer_responsavel preenchido
- * - pipedrive___data_de_qualificacao preenchida
- * - opcionalmente: pipedrive___data_de_qualificacao dentro de [from, to]
+ * Busca deals para o dashboard.
  *
- * Trazemos todos os estágios e pipelines aqui; a filtragem por
- * "ganho", "perdido", "em aberto" é feita em memória nas funções de agregação.
- * Isso evita N chamadas à API e mantém o código simples.
+ * Se `ownerIds` for fornecido, filtra apenas deals desses farmers (estrito).
+ * Caso contrário, busca todos os deals com sdrfarmer_responsavel preenchido
+ * (modo legado/fallback).
  */
 export async function fetchDealsForDashboard(opts: {
-  from?: string; // ISO date
-  to?: string;   // ISO date
+  from?: string;
+  to?: string;
+  ownerIds?: string[];
 }): Promise<Deal[]> {
-  const filters: Array<{ propertyName: string; operator: string; value?: string; highValue?: string }> = [
-    { propertyName: "sdrfarmer_responsavel", operator: "HAS_PROPERTY" },
+  const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
     { propertyName: "pipedrive___data_de_qualificacao", operator: "HAS_PROPERTY" },
   ];
+
+  if (opts.ownerIds && opts.ownerIds.length > 0) {
+    // Filtro estrito: só esses owners. Operador IN aceita até 100 valores.
+    filters.push({
+      propertyName: "sdrfarmer_responsavel",
+      operator: "IN",
+      values: opts.ownerIds.slice(0, 100),
+    });
+  } else {
+    filters.push({ propertyName: "sdrfarmer_responsavel", operator: "HAS_PROPERTY" });
+  }
 
   if (opts.from) {
     filters.push({
@@ -192,6 +204,7 @@ export async function fetchDealsForDashboard(opts: {
   const all: Deal[] = [];
   let after: string | undefined;
   const limit = 100;
+  let pageCount = 0;
 
   do {
     const body: Record<string, unknown> = {
@@ -209,6 +222,10 @@ export async function fetchDealsForDashboard(opts: {
 
     all.push(...data.results);
     after = data.paging?.next?.after;
+    pageCount++;
+
+    // Espaça as próximas chamadas pra evitar 429 quando há muitas páginas.
+    if (after) await sleep(150);
   } while (after);
 
   return all;

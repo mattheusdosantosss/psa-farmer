@@ -5,6 +5,7 @@ import {
   fetchDealsForDashboard,
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
+import { ALL_FARMER_EMAILS, normalizeEmail } from "@/lib/teams";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,6 @@ const PIPELINE_CS_ATIVO = !!process.env.HUBSPOT_PIPELINE_CS;
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
 
-  // Proteção simples: ?key=... precisa bater com DASHBOARD_ACCESS_KEY
   if (ACCESS_KEY) {
     const key = url.searchParams.get("key");
     if (key !== ACCESS_KEY) {
@@ -29,16 +29,41 @@ export async function GET(req: NextRequest) {
   const revenueMode: RevenueMode = modeRaw === "liquido" ? "liquido" : "bruto";
 
   try {
-    const [deals, tickets, owners] = await Promise.all([
-      fetchDealsForDashboard({ from, to }),
+    // 1) Owners primeiro — precisamos do mapa email→id pra montar o filtro
+    const owners = await fetchAllOwners();
+
+    // Resolve e-mails da lista oficial → owner IDs
+    const allowedOwnerIds = new Set<string>();
+    const foundEmails = new Set<string>();
+    for (const owner of owners.values()) {
+      const email = normalizeEmail(owner.email);
+      if (ALL_FARMER_EMAILS.has(email)) {
+        allowedOwnerIds.add(owner.id);
+        foundEmails.add(email);
+      }
+    }
+
+    // E-mails da lista oficial que NÃO foram encontrados (alerta de manutenção)
+    const missingEmails = Array.from(ALL_FARMER_EMAILS).filter(
+      (e) => !foundEmails.has(e)
+    );
+
+    // 2) Deals e tickets em paralelo (com filtro de IDs no caso dos deals)
+    const [deals, tickets] = await Promise.all([
+      fetchDealsForDashboard({
+        from,
+        to,
+        ownerIds: Array.from(allowedOwnerIds),
+      }),
       PIPELINE_CS_ATIVO ? fetchCsTickets() : Promise.resolve([]),
-      fetchAllOwners(),
     ]);
 
     const data = aggregate({
       deals,
       tickets,
       owners,
+      allowedOwnerIds,
+      missingEmails,
       revenueMode,
       pipelineCsAtivo: PIPELINE_CS_ATIVO,
     });

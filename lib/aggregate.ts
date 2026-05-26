@@ -11,12 +11,15 @@ import {
   STAGES,
   ownerDisplayName,
 } from "./hubspot";
+import { SQUADS, SquadId, squadOf, normalizeEmail } from "./teams";
 
 export type RevenueMode = "liquido" | "bruto";
 
 export type FarmerRow = {
   ownerId: string;
+  email: string;
   nome: string;
+  squadId: SquadId | null;
   demandas: number;
   ganhos: number;
   perdidos: number;
@@ -26,20 +29,40 @@ export type FarmerRow = {
   tramCs: number;
 };
 
+export type SquadStats = {
+  id: SquadId;
+  label: string;
+  leader: string;
+  demandas: number;
+  ganhos: number;
+  semGanhos: number;
+  emAberto: number;
+  receitaTotal: number;
+  farmers: FarmerRow[];
+};
+
 export type DashboardData = {
+  // Visão geral (todos os farmers, todas as squads)
   topo: {
     demandas: number;
     ganhos: number;
-    semGanhos: number; // farmers sem nenhum ganho
+    semGanhos: number;
     emAberto: number;
     receitaTotal: number;
   };
   farmers: FarmerRow[];
+
+  // Visão por squad (para abas)
+  squads: SquadStats[];
+
   meta: {
     revenueMode: RevenueMode;
     pipelineCsAtivo: boolean;
     totalDeals: number;
     totalFarmers: number;
+    // E-mails da squad que não foram encontrados como owners no HubSpot
+    // (typo na lista, owner desativado, etc.)
+    missingEmails: string[];
   };
 };
 
@@ -48,14 +71,8 @@ export type DashboardData = {
 // ============================================================
 
 function parseAmount(deal: Deal, mode: RevenueMode): number {
-  // No HubSpot:
-  //   amount = valor "bruto" inserido pelo usuário
-  //   amount_in_home_currency = mesmo valor convertido pra moeda da conta
-  //
-  // Para "líquido" vs "bruto" não existe um par direto na API; a Pri precisa
-  // confirmar onde mora o líquido. Por ora:
-  //   - bruto    → amount (campo padrão)
-  //   - líquido  → amount_in_home_currency (placeholder; ajustar quando Pri responder)
+  // bruto    → amount (campo padrão do HubSpot)
+  // líquido  → amount_in_home_currency (placeholder; Pri precisa confirmar)
   const raw = mode === "bruto"
     ? deal.properties.amount
     : (deal.properties.amount_in_home_currency || deal.properties.amount);
@@ -74,8 +91,6 @@ function isPerdido(deal: Deal): boolean {
 
 function isEmAberto(deal: Deal): boolean {
   const stage = deal.properties.dealstage;
-  // Em aberto = qualificado (já garantido pelo filtro de busca) e
-  // não está em estado final (ganho/contrato/perdido).
   return !stage || !ESTADO_FINAL_STAGES.includes(stage);
 }
 
@@ -86,40 +101,46 @@ function isEmAberto(deal: Deal): boolean {
 export function aggregate(input: {
   deals: Deal[];
   tickets: Ticket[];
-  owners: Map<string, Owner>;
+  owners: Map<string, Owner>;     // ownerId -> Owner
+  allowedOwnerIds: Set<string>;   // só esses entram no resultado
+  missingEmails: string[];
   revenueMode: RevenueMode;
   pipelineCsAtivo: boolean;
 }): DashboardData {
-  const { deals, tickets, owners, revenueMode, pipelineCsAtivo } = input;
+  const {
+    deals, tickets, owners, allowedOwnerIds, missingEmails,
+    revenueMode, pipelineCsAtivo,
+  } = input;
 
-  // Mapa: ownerId -> agregação
+  // Inicializa a row de TODO farmer permitido (mesmo que ele não tenha
+  // nenhum deal no período — ele precisa aparecer com zeros).
   const byFarmer = new Map<string, FarmerRow>();
 
-  const ensureFarmer = (ownerId: string): FarmerRow => {
-    let row = byFarmer.get(ownerId);
-    if (!row) {
-      row = {
-        ownerId,
-        nome: ownerDisplayName(owners.get(ownerId)),
-        demandas: 0,
-        ganhos: 0,
-        perdidos: 0,
-        emAberto: 0,
-        txConversao: 0,
-        receita: 0,
-        tramCs: 0,
-      };
-      byFarmer.set(ownerId, row);
-    }
-    return row;
-  };
+  for (const ownerId of allowedOwnerIds) {
+    const owner = owners.get(ownerId);
+    const email = normalizeEmail(owner?.email);
+    byFarmer.set(ownerId, {
+      ownerId,
+      email,
+      nome: ownerDisplayName(owner),
+      squadId: squadOf(email),
+      demandas: 0,
+      ganhos: 0,
+      perdidos: 0,
+      emAberto: 0,
+      txConversao: 0,
+      receita: 0,
+      tramCs: 0,
+    });
+  }
 
-  // Processa deals
+  // Processa deals — ignora qualquer um que não seja de owner permitido
   for (const deal of deals) {
     const ownerId = deal.properties.sdrfarmer_responsavel;
     if (!ownerId) continue;
+    const row = byFarmer.get(ownerId);
+    if (!row) continue; // ownerId não está na lista oficial, ignora
 
-    const row = ensureFarmer(ownerId);
     row.demandas += 1;
 
     if (isGanho(deal)) {
@@ -132,26 +153,44 @@ export function aggregate(input: {
     }
   }
 
-  // Processa tickets CS (só se pipeline ativo)
+  // Tickets CS (se permissão ativa)
   if (pipelineCsAtivo) {
     for (const ticket of tickets) {
       const ownerId = ticket.properties.hubspot_owner_id;
       if (!ownerId) continue;
-      // Conta tickets do farmer mesmo que ele ainda não tenha deal
-      const row = ensureFarmer(ownerId);
+      const row = byFarmer.get(ownerId);
+      if (!row) continue;
       row.tramCs += 1;
     }
   }
 
-  // Calcula tx de conversão por farmer
+  // Tx de conversão
   for (const row of byFarmer.values()) {
     row.txConversao = row.demandas > 0 ? row.ganhos / row.demandas : 0;
   }
 
+  // Ordena: mais ganhos primeiro, depois mais demandas
   const farmers = Array.from(byFarmer.values()).sort(
     (a, b) => b.ganhos - a.ganhos || b.demandas - a.demandas
   );
 
+  // Squads (apenas as definidas em SQUADS, na ordem definida lá)
+  const squads: SquadStats[] = SQUADS.map((s) => {
+    const members = farmers.filter((f) => f.squadId === s.id);
+    return {
+      id: s.id,
+      label: s.label,
+      leader: s.leader,
+      farmers: members,
+      demandas: members.reduce((sum, f) => sum + f.demandas, 0),
+      ganhos: members.reduce((sum, f) => sum + f.ganhos, 0),
+      semGanhos: members.filter((f) => f.ganhos === 0).length,
+      emAberto: members.reduce((sum, f) => sum + f.emAberto, 0),
+      receitaTotal: members.reduce((sum, f) => sum + f.receita, 0),
+    };
+  });
+
+  // Topo (visão geral somando todas as squads)
   const topo = {
     demandas: farmers.reduce((s, f) => s + f.demandas, 0),
     ganhos: farmers.reduce((s, f) => s + f.ganhos, 0),
@@ -163,11 +202,13 @@ export function aggregate(input: {
   return {
     topo,
     farmers,
+    squads,
     meta: {
       revenueMode,
       pipelineCsAtivo,
       totalDeals: deals.length,
       totalFarmers: farmers.length,
+      missingEmails,
     },
   };
 }

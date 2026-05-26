@@ -27,7 +27,7 @@ export default function PeriodFilter({ value, onChange }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col">
-        <label className="text-[11px] font-medium uppercase tracking-wider text-psa-muted mb-1.5">
+        <label className="text-[11px] font-semibold uppercase tracking-wider text-psa-ink-soft mb-1.5">
           Período
         </label>
         <select
@@ -42,7 +42,7 @@ export default function PeriodFilter({ value, onChange }: Props) {
           ))}
         </select>
         {value.preset !== "custom" && (
-          <span className="mt-1 text-[11px] text-psa-muted">
+          <span className="mt-1 text-[11px] text-psa-ink-soft font-medium">
             {formatPeriodRange(value.from, value.to)}
           </span>
         )}
@@ -51,7 +51,7 @@ export default function PeriodFilter({ value, onChange }: Props) {
       {value.preset === "custom" && (
         <>
           <div className="flex flex-col">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-psa-muted mb-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-psa-ink-soft mb-1.5">
               De
             </label>
             <input
@@ -63,7 +63,7 @@ export default function PeriodFilter({ value, onChange }: Props) {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-psa-muted mb-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-psa-ink-soft mb-1.5">
               Até
             </label>
             <input

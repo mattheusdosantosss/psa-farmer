@@ -70,7 +70,7 @@ export default function FarmerTable({ rows, pipelineCsAtivo, loading = false }: 
         <div className="font-display text-lg font-semibold text-psa-ink">
           Nenhum dado no período
         </div>
-        <p className="mt-2 text-sm text-psa-muted max-w-sm mx-auto">
+        <p className="mt-2 text-sm text-psa-ink-soft max-w-sm mx-auto">
           Ajuste o filtro de período ou confirme se há negócios qualificados
           atribuídos a farmers no recorte escolhido.
         </p>
@@ -130,7 +130,7 @@ export default function FarmerTable({ rows, pipelineCsAtivo, loading = false }: 
                 <td className="p-4 text-right tabular-nums font-semibold text-psa-orange">
                   {f.ganhos}
                 </td>
-                <td className="p-4 text-right tabular-nums text-psa-muted">
+                <td className="p-4 text-right tabular-nums text-psa-ink-soft">
                   {f.perdidos}
                 </td>
                 <td className="p-4 text-right tabular-nums text-psa-ink-soft">
@@ -143,7 +143,7 @@ export default function FarmerTable({ rows, pipelineCsAtivo, loading = false }: 
                   {pipelineCsAtivo ? (
                     <span className="text-psa-ink-soft">{f.tramCs}</span>
                   ) : (
-                    <span className="text-[11px] text-psa-muted italic">
+                    <span className="text-[11px] text-psa-ink-soft italic">
                       sem acesso
                     </span>
                   )}
@@ -158,7 +158,7 @@ export default function FarmerTable({ rows, pipelineCsAtivo, loading = false }: 
       </div>
 
       {!pipelineCsAtivo && (
-        <div className="px-4 py-3 text-[11px] text-psa-muted bg-psa-canvas border-t border-psa-line flex items-center gap-2">
+        <div className="px-4 py-3 text-[11px] text-psa-ink-soft bg-psa-canvas border-t border-psa-line flex items-center gap-2">
           <span className="inline-block w-1 h-1 rounded-full bg-psa-orange" />
           Coluna <strong className="font-semibold text-psa-ink-soft">Tram CS</strong> indisponível
           até liberação de acesso à pipeline CS no HubSpot.
