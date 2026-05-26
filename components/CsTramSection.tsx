@@ -22,6 +22,7 @@ type Props = {
   topo: Topo;
   rows: FarmerRow[];
   loading?: boolean;
+  onDrillDownTramite?: (farmer: FarmerRow) => void;
 };
 
 const HEAD = (
@@ -54,7 +55,12 @@ function SkeletonRow() {
   );
 }
 
-export default function CsTramSection({ topo, rows, loading = false }: Props) {
+export default function CsTramSection({
+  topo,
+  rows,
+  loading = false,
+  onDrillDownTramite,
+}: Props) {
   // Ordena: concluídos primeiro, depois demandas
   const ranked = [...rows].sort(
     (a, b) => b.csConcluidos - a.csConcluidos || b.csDemandas - a.csDemandas
@@ -175,8 +181,16 @@ export default function CsTramSection({ topo, rows, loading = false }: Props) {
                     <td className="p-4 text-right tabular-nums text-psa-ink-soft">
                       {f.csCancelados}
                     </td>
-                    <td className="p-4 text-right tabular-nums text-psa-ink-soft">
-                      {f.csEmTramite}
+                    <td className="p-4 text-right tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => onDrillDownTramite?.(f)}
+                        disabled={f.csEmTramite === 0 || !onDrillDownTramite}
+                        className="inline-block min-w-[2rem] px-1 rounded-md font-semibold text-psa-ink-soft hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-psa-ink-soft"
+                        title={f.csEmTramite > 0 ? "Ver tickets em trâmite" : ""}
+                      >
+                        {f.csEmTramite}
+                      </button>
                     </td>
                   </tr>
                 ))}

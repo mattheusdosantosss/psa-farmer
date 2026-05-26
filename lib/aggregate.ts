@@ -16,6 +16,22 @@ import { SQUADS, SquadId, squadOf, normalizeEmail } from "./teams";
 
 export type RevenueMode = "liquido" | "bruto";
 
+// Representação enxuta de um deal para listagens no client
+export type DealLite = {
+  id: string;
+  dealname: string;
+  amount: number;
+  closedate?: string;   // ISO ou undefined
+  createdate?: string;  // ISO ou undefined
+};
+
+// Representação enxuta de um ticket CS para listagens
+export type TicketLite = {
+  id: string;
+  subject: string;
+  createdate?: string;
+};
+
 export type FarmerRow = {
   ownerId: string;
   email: string;
@@ -34,6 +50,11 @@ export type FarmerRow = {
   csCancelados: number;
   csEmTramite: number;
   csTxConclusao: number;  // concluidos / csDemandas
+  // Listas pra drill-down nos modais
+  dealsGanhos: DealLite[];
+  dealsPerdidos: DealLite[];
+  dealsEmAberto: DealLite[];
+  ticketsEmTramite: TicketLite[];
 };
 
 export type SquadStats = {
@@ -165,6 +186,10 @@ export function aggregate(input: {
       csCancelados: 0,
       csEmTramite: 0,
       csTxConclusao: 0,
+      dealsGanhos: [],
+      dealsPerdidos: [],
+      dealsEmAberto: [],
+      ticketsEmTramite: [],
     });
   }
 
@@ -175,14 +200,25 @@ export function aggregate(input: {
     const row = byFarmer.get(ownerId);
     if (!row) continue;
 
+    const lite: DealLite = {
+      id: deal.id,
+      dealname: deal.properties.dealname || "(sem nome)",
+      amount: parseAmount(deal, revenueMode),
+      closedate: deal.properties.closedate,
+      createdate: deal.properties.createdate,
+    };
+
     row.demandas += 1;
     if (isGanho(deal)) {
       row.ganhos += 1;
-      row.receita += parseAmount(deal, revenueMode);
+      row.receita += lite.amount;
+      row.dealsGanhos.push(lite);
     } else if (isPerdido(deal)) {
       row.perdidos += 1;
+      row.dealsPerdidos.push(lite);
     } else if (isEmAberto(deal)) {
       row.emAberto += 1;
+      row.dealsEmAberto.push(lite);
     }
   }
 
@@ -196,8 +232,14 @@ export function aggregate(input: {
 
       const tipo = classificaTicket(ticket, csStages);
       if (!tipo) continue;
-      if (tipo === "tramite") row.csEmTramite += 1;
-      else if (tipo === "concluido") row.csConcluidos += 1;
+      if (tipo === "tramite") {
+        row.csEmTramite += 1;
+        row.ticketsEmTramite.push({
+          id: ticket.id,
+          subject: ticket.properties.subject || "(sem assunto)",
+          createdate: ticket.properties.createdate,
+        });
+      } else if (tipo === "concluido") row.csConcluidos += 1;
       else if (tipo === "cancelado") row.csCancelados += 1;
     }
   }

@@ -1,5 +1,6 @@
 import type { FarmerRow } from "@/lib/aggregate";
 import DistBar from "./DistBar";
+import type { ModalKind } from "./DealsModal";
 
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -20,7 +21,11 @@ const diagnostico = (f: FarmerRow) =>
 type Props = {
   rows: FarmerRow[];
   loading?: boolean;
+  onDrillDown?: (farmer: FarmerRow, kind: ModalKind) => void;
 };
+
+const numBtnClasses =
+  "inline-block min-w-[2rem] px-1 rounded-md font-semibold hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer";
 
 const COLUNAS_NUMERICAS = 7; // Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Diagnóstico
 
@@ -58,7 +63,11 @@ const HEAD = (
   </thead>
 );
 
-export default function FarmerTable({ rows, loading = false }: Props) {
+export default function FarmerTable({ rows, loading = false, onDrillDown }: Props) {
+  const handleClick = (farmer: FarmerRow, kind: ModalKind) => {
+    if (onDrillDown) onDrillDown(farmer, kind);
+  };
+
   if (loading) {
     return (
       <div className="rounded-2xl bg-psa-surface border border-psa-line shadow-card overflow-hidden">
@@ -123,14 +132,38 @@ export default function FarmerTable({ rows, loading = false }: Props) {
                 <td className="p-4 text-right tabular-nums text-psa-ink-soft">
                   {f.demandas}
                 </td>
-                <td className="p-4 text-right tabular-nums font-semibold text-psa-orange">
-                  {f.ganhos}
+                <td className="p-4 text-right tabular-nums">
+                  <button
+                    type="button"
+                    onClick={() => handleClick(f, "ganhos")}
+                    className={`${numBtnClasses} text-psa-orange`}
+                    disabled={f.ganhos === 0}
+                    title={f.ganhos > 0 ? "Ver negócios fechados" : ""}
+                  >
+                    {f.ganhos}
+                  </button>
                 </td>
-                <td className="p-4 text-right tabular-nums text-psa-ink-soft">
-                  {f.perdidos}
+                <td className="p-4 text-right tabular-nums">
+                  <button
+                    type="button"
+                    onClick={() => handleClick(f, "perdidos")}
+                    className={`${numBtnClasses} text-psa-ink-soft`}
+                    disabled={f.perdidos === 0}
+                    title={f.perdidos > 0 ? "Ver negócios perdidos" : ""}
+                  >
+                    {f.perdidos}
+                  </button>
                 </td>
-                <td className="p-4 text-right tabular-nums text-psa-ink-soft">
-                  {f.emAberto}
+                <td className="p-4 text-right tabular-nums">
+                  <button
+                    type="button"
+                    onClick={() => handleClick(f, "aberto")}
+                    className={`${numBtnClasses} text-psa-ink-soft`}
+                    disabled={f.emAberto === 0}
+                    title={f.emAberto > 0 ? "Ver negócios em aberto" : ""}
+                  >
+                    {f.emAberto}
+                  </button>
                 </td>
 
                 {/* Dist. */}
@@ -146,14 +179,22 @@ export default function FarmerTable({ rows, loading = false }: Props) {
                   {pct(f.txConversao)}
                 </td>
 
-                {/* Receita + "X deals" embaixo */}
+                {/* Receita + "X deals" embaixo (clicável) */}
                 <td className="p-4 text-right whitespace-nowrap">
-                  <div className="tabular-nums font-medium text-psa-ink">
-                    {brl(f.receita)}
-                  </div>
-                  <div className="text-[10px] text-psa-ink-soft mt-0.5">
-                    {f.ganhos} {f.ganhos === 1 ? "deal" : "deals"}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleClick(f, "ganhos")}
+                    disabled={f.ganhos === 0}
+                    className="block w-full text-right group disabled:cursor-default"
+                    title={f.ganhos > 0 ? "Ver negócios fechados" : ""}
+                  >
+                    <div className="tabular-nums font-medium text-psa-ink group-hover:text-psa-orange group-disabled:hover:text-psa-ink transition-colors">
+                      {brl(f.receita)}
+                    </div>
+                    <div className="text-[10px] text-psa-ink-soft mt-0.5">
+                      {f.ganhos} {f.ganhos === 1 ? "deal" : "deals"}
+                    </div>
+                  </button>
                 </td>
 
                 {/* Diagnóstico */}

@@ -5,6 +5,7 @@ import KpiCard from "@/components/KpiCard";
 import FarmerTable from "@/components/FarmerTable";
 import FarmersToolbar, { type FarmerFilter } from "@/components/FarmersToolbar";
 import CsTramSection from "@/components/CsTramSection";
+import DealsModal, { type ModalKind } from "@/components/DealsModal";
 import PeriodFilter from "@/components/PeriodFilter";
 import type { TabValue } from "@/components/TabsBar";
 import { computePeriod, type PeriodValue } from "@/lib/periods";
@@ -70,6 +71,10 @@ export default function Page() {
   const [accessKey, setAccessKey] = useState<string>("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FarmerFilter>("todos");
+  const [modal, setModal] = useState<{
+    farmer: FarmerRow;
+    kind: ModalKind;
+  } | null>(null);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -369,6 +374,7 @@ export default function Page() {
         <FarmerTable
           rows={filteredFarmers}
           loading={loading}
+          onDrillDown={(farmer, kind) => setModal({ farmer, kind })}
         />
       </section>
 
@@ -378,8 +384,31 @@ export default function Page() {
           topo={view.topoCs}
           rows={view.farmers}
           loading={loading}
+          onDrillDownTramite={(farmer) =>
+            setModal({ farmer, kind: "tramite" })
+          }
         />
       )}
+
+      {/* Modal de drill-down (clique em números) */}
+      <DealsModal
+        open={modal !== null}
+        onClose={() => setModal(null)}
+        farmerName={modal?.farmer.nome ?? ""}
+        kind={modal?.kind ?? "ganhos"}
+        deals={
+          modal
+            ? modal.kind === "ganhos"
+              ? modal.farmer.dealsGanhos
+              : modal.kind === "perdidos"
+              ? modal.farmer.dealsPerdidos
+              : modal.kind === "aberto"
+              ? modal.farmer.dealsEmAberto
+              : undefined
+            : undefined
+        }
+        tickets={modal?.kind === "tramite" ? modal.farmer.ticketsEmTramite : undefined}
+      />
     </main>
   );
 }
