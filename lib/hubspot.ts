@@ -232,7 +232,7 @@ export async function fetchDealsForDashboard(opts: {
 }
 
 // ============================================================
-// Tickets (pipeline CS) — bloqueado por permissão hoje
+// Tickets (pipeline CS)
 // ============================================================
 
 const TICKET_PROPS = [
@@ -243,25 +243,73 @@ const TICKET_PROPS = [
   "createdate",
 ];
 
+const STAGES_ABERTOS_ENV = process.env.HUBSPOT_PIPELINE_CS_STAGES_ABERTOS || "";
+
 /**
- * Tickets do farmer na pipeline CS.
- * Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado (caso atual).
+ * Resolve quais estágios da pipeline CS contam como "abertos" (tramitando).
+ *
+ * Ordem de prioridade:
+ *  1) Se HUBSPOT_PIPELINE_CS_STAGES_ABERTOS está preenchida -> usa essa lista
+ *  2) Caso contrário, consulta a API de pipelines e seleciona automaticamente
+ *     todos os estágios com metadata.isClosed === false
  */
-export async function fetchCsTickets(): Promise<Ticket[]> {
+async function resolveCsStagesAbertos(): Promise<string[]> {
+  if (STAGES_ABERTOS_ENV) {
+    return STAGES_ABERTOS_ENV.split(",").map((s) => s.trim()).filter(Boolean);
+  }
   if (!PIPELINE_CS) return [];
+
+  type Stage = { id: string; label: string; metadata?: { isClosed?: string | boolean } };
+  type PipelineResponse = { stages: Stage[] };
+
+  const data: PipelineResponse = await hsFetch(
+    `/crm/v3/pipelines/tickets/${encodeURIComponent(PIPELINE_CS)}`
+  );
+
+  // HubSpot retorna isClosed como string "true"/"false" em alguns lugares
+  const isClosed = (s: Stage) =>
+    s.metadata?.isClosed === true || s.metadata?.isClosed === "true";
+
+  return data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
+}
+
+/**
+ * Tickets na pipeline CS que estão em estágio ABERTO (tramitando).
+ * - Filtra por owner se ownerIds for fornecido (mais eficiente, evita rate limit)
+ * - Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado
+ */
+export async function fetchCsTickets(opts?: {
+  ownerIds?: string[];
+}): Promise<Ticket[]> {
+  if (!PIPELINE_CS) return [];
+
+  const stagesAbertos = await resolveCsStagesAbertos();
+  if (stagesAbertos.length === 0) {
+    console.warn("[hubspot] Pipeline CS sem estágios abertos resolvidos");
+    return [];
+  }
+
+  const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
+    { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+    { propertyName: "hs_pipeline_stage", operator: "IN", values: stagesAbertos },
+  ];
+
+  if (opts?.ownerIds && opts.ownerIds.length > 0) {
+    filters.push({
+      propertyName: "hubspot_owner_id",
+      operator: "IN",
+      values: opts.ownerIds.slice(0, 100),
+    });
+  } else {
+    filters.push({ propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" });
+  }
 
   const all: Ticket[] = [];
   let after: string | undefined;
+
   do {
     const body: Record<string, unknown> = {
-      filterGroups: [
-        {
-          filters: [
-            { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
-            { propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" },
-          ],
-        },
-      ],
+      filterGroups: [{ filters }],
       properties: TICKET_PROPS,
       limit: 100,
     };
@@ -274,6 +322,7 @@ export async function fetchCsTickets(): Promise<Ticket[]> {
 
     all.push(...data.results);
     after = data.paging?.next?.after;
+    if (after) await sleep(150);
   } while (after);
 
   return all;

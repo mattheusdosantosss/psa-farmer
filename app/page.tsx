@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import KpiCard from "@/components/KpiCard";
 import FarmerTable from "@/components/FarmerTable";
+import CsTramSection from "@/components/CsTramSection";
 import PeriodFilter from "@/components/PeriodFilter";
 import type { TabValue } from "@/components/TabsBar";
 import { computePeriod, type PeriodValue } from "@/lib/periods";
@@ -304,10 +305,17 @@ export default function Page() {
         </div>
         <FarmerTable
           rows={view?.farmers ?? []}
-          pipelineCsAtivo={data?.meta.pipelineCsAtivo ?? false}
           loading={loading}
         />
       </section>
+
+      {/* Tramitação CS — só aparece se a pipeline estiver configurada */}
+      {data?.meta.pipelineCsAtivo && (
+        <CsTramSection
+          rows={view?.farmers ?? []}
+          loading={loading}
+        />
+      )}
     </main>
   );
 }

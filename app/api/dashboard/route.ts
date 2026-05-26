@@ -55,7 +55,9 @@ export async function GET(req: NextRequest) {
         to,
         ownerIds: Array.from(allowedOwnerIds),
       }),
-      PIPELINE_CS_ATIVO ? fetchCsTickets() : Promise.resolve([]),
+      PIPELINE_CS_ATIVO
+        ? fetchCsTickets({ ownerIds: Array.from(allowedOwnerIds) })
+        : Promise.resolve([]),
     ]);
 
     const data = aggregate({
