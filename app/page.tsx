@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import KpiCard from "@/components/KpiCard";
 import FarmerTable from "@/components/FarmerTable";
 import PeriodFilter from "@/components/PeriodFilter";
-import TabsBar, { type TabValue } from "@/components/TabsBar";
+import type { TabValue } from "@/components/TabsBar";
 import { computePeriod, type PeriodValue } from "@/lib/periods";
 import type { DashboardData, FarmerRow } from "@/lib/aggregate";
 
@@ -100,67 +100,117 @@ export default function Page() {
   const view = computeView(data, tab);
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
-      {/* Header */}
-      <header className="flex flex-wrap items-start justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-block w-2 h-2 rounded-sm bg-psa-orange" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-psa-orange">
-              PSA · Operação
-            </span>
-          </div>
-          <h1 className="font-display text-3xl font-bold text-psa-ink">
-            Farmer Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-psa-ink-soft">
-            Acompanhamento da operação dos farmers no Funil de Vendas B2B.
-          </p>
-        </div>
+    <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      {/* Hero / Header Bloco */}
+      <section className="relative overflow-hidden rounded-3xl bg-psa-ink text-white shadow-card">
+        {/* Faixas geométricas decorativas (vibe LP PSA) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-psa-orange opacity-20 blur-[2px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-32 -left-12 w-[300px] h-[300px] rounded-full bg-psa-blue opacity-25"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-0 right-0 h-full w-1.5 bg-psa-orange"
+        />
 
-        <div className="flex flex-wrap items-end gap-4">
-          <PeriodFilter value={period} onChange={handlePeriodChange} />
+        {/* Conteúdo */}
+        <div className="relative px-8 pt-8 pb-2">
+          <div className="flex flex-wrap items-start justify-between gap-8">
+            {/* Marca + título */}
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-psa-orange/15 border border-psa-orange/30">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-psa-orange" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-psa-orange-hover">
+                  PSA · Operação
+                </span>
+              </div>
+              <h1 className="font-display text-[44px] leading-[1.05] font-extrabold tracking-tight text-white">
+                Farmer
+                <br />
+                <span className="text-psa-orange">Dashboard.</span>
+              </h1>
+              <p className="mt-4 text-sm text-white/70 max-w-md">
+                Acompanhamento da operação dos farmers no Funil de Vendas B2B.
+              </p>
+            </div>
 
-          <div className="flex flex-col">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-psa-ink-soft mb-1.5">
-              Receita
-            </span>
-            <div className="inline-flex rounded-lg border border-psa-line overflow-hidden text-sm bg-psa-surface">
-              <button
-                onClick={() => setMode("bruto")}
-                className={`px-4 py-2 transition-colors font-medium ${
-                  mode === "bruto"
-                    ? "bg-psa-blue text-white"
-                    : "text-psa-ink-soft hover:bg-psa-canvas"
-                }`}
-              >
-                Bruto
-              </button>
-              <button
-                onClick={() => setMode("liquido")}
-                className={`px-4 py-2 transition-colors font-medium ${
-                  mode === "liquido"
-                    ? "bg-psa-blue text-white"
-                    : "text-psa-ink-soft hover:bg-psa-canvas"
-                }`}
-              >
-                Líquido
-              </button>
+            {/* Filtros */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="bg-white/[0.06] backdrop-blur border border-white/10 rounded-xl px-4 py-3">
+                <PeriodFilter value={period} onChange={handlePeriodChange} />
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60 mb-2">
+                  Receita
+                </span>
+                <div className="inline-flex rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
+                  <button
+                    onClick={() => setMode("bruto")}
+                    className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                      mode === "bruto"
+                        ? "bg-psa-orange text-white shadow-md"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    Bruto
+                  </button>
+                  <button
+                    onClick={() => setMode("liquido")}
+                    className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                      mode === "liquido"
+                        ? "bg-psa-orange text-white shadow-md"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    Líquido
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <TabsBar value={tab} onChange={setTab} />
-        {view?.leader && (
-          <div className="text-sm text-psa-ink-soft">
-            Líder:{" "}
-            <span className="font-semibold text-psa-ink">{view.leader}</span>
+          {/* Tabs ancoradas ao fundo do hero */}
+          <div className="mt-8 -mb-px flex flex-wrap items-end justify-between gap-4">
+            <div className="inline-flex flex-wrap gap-1">
+              {[
+                { id: "all" as const, label: "Geral" },
+                { id: "dani" as const, label: "Squad Dani" },
+                { id: "katyeli" as const, label: "Squad Katyeli" },
+                { id: "leticia" as const, label: "Squad Leticia" },
+              ].map((t) => {
+                const active = tab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`relative px-5 py-3 text-sm font-semibold transition-colors rounded-t-xl ${
+                      active
+                        ? "bg-psa-canvas text-psa-ink"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    {t.label}
+                    {active && (
+                      <span className="absolute left-5 right-5 top-0 h-[3px] bg-psa-orange rounded-b-full" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {view?.leader && (
+              <div className="pb-3 text-xs text-white/60">
+                Líder da squad{" "}
+                <span className="font-bold text-white">{view.leader}</span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
 
       {/* Erro */}
       {error && (
