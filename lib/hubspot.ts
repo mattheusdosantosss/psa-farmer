@@ -34,7 +34,7 @@ export type Deal = {
     createdate?: string;
     closedate?: string;
     sdrfarmer_responsavel?: string;
-    data_de_qualificacao?: string;
+    pipedrive___data_de_qualificacao?: string;
     hs_lastmodifieddate?: string;
     [key: string]: string | undefined;
   };
@@ -151,15 +151,15 @@ const DEAL_PROPS = [
   "createdate",
   "closedate",
   "sdrfarmer_responsavel",
-  "data_de_qualificacao",
+  "pipedrive___data_de_qualificacao",
   "hs_lastmodifieddate",
 ];
 
 /**
  * Busca TODOS os deals que tenham:
  * - sdrfarmer_responsavel preenchido
- * - data_de_qualificacao preenchida
- * - opcionalmente: data_de_qualificacao dentro de [from, to]
+ * - pipedrive___data_de_qualificacao preenchida
+ * - opcionalmente: pipedrive___data_de_qualificacao dentro de [from, to]
  *
  * Trazemos todos os estágios e pipelines aqui; a filtragem por
  * "ganho", "perdido", "em aberto" é feita em memória nas funções de agregação.
@@ -171,19 +171,19 @@ export async function fetchDealsForDashboard(opts: {
 }): Promise<Deal[]> {
   const filters: Array<{ propertyName: string; operator: string; value?: string; highValue?: string }> = [
     { propertyName: "sdrfarmer_responsavel", operator: "HAS_PROPERTY" },
-    { propertyName: "data_de_qualificacao", operator: "HAS_PROPERTY" },
+    { propertyName: "pipedrive___data_de_qualificacao", operator: "HAS_PROPERTY" },
   ];
 
   if (opts.from) {
     filters.push({
-      propertyName: "data_de_qualificacao",
+      propertyName: "pipedrive___data_de_qualificacao",
       operator: "GTE",
       value: new Date(opts.from).getTime().toString(),
     });
   }
   if (opts.to) {
     filters.push({
-      propertyName: "data_de_qualificacao",
+      propertyName: "pipedrive___data_de_qualificacao",
       operator: "LTE",
       value: new Date(opts.to).getTime().toString(),
     });
@@ -198,7 +198,7 @@ export async function fetchDealsForDashboard(opts: {
       filterGroups: [{ filters }],
       properties: DEAL_PROPS,
       limit,
-      sorts: [{ propertyName: "data_de_qualificacao", direction: "DESCENDING" }],
+      sorts: [{ propertyName: "pipedrive___data_de_qualificacao", direction: "DESCENDING" }],
     };
     if (after) body.after = after;
 
