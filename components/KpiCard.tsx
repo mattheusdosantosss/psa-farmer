@@ -28,7 +28,7 @@ export default function KpiCard({
       : "bg-psa-ink";
 
   return (
-    <div className="group rounded-2xl bg-psa-surface border border-psa-line p-5 shadow-card hover:shadow-card-hover transition-shadow">
+    <div className="group rounded-2xl bg-psa-surface border border-psa-line p-5 shadow-card hover:shadow-card-hover transition-shadow min-w-0 overflow-hidden">
       <div className="flex items-center gap-2">
         <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotColor}`} />
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-psa-ink-soft">
@@ -40,7 +40,9 @@ export default function KpiCard({
         {loading ? (
           <span className="skeleton h-9 w-24 inline-block" />
         ) : (
-          <span className={`font-display text-[34px] leading-none font-bold ${accentColor}`}>
+          <span
+            className={`font-display font-bold leading-none tabular-nums ${accentColor} text-[clamp(1.5rem,2.4vw,2.125rem)]`}
+          >
             {value}
           </span>
         )}
