@@ -4,7 +4,8 @@ import {
   getAllStartDates,
   setStartDate,
 } from "@/lib/farmer-dates-store";
-import { ALL_FARMER_EMAILS, normalizeEmail, squadOf } from "@/lib/teams";
+import { resolveFarmers } from "@/lib/teams";
+import { getAllOverrides } from "@/lib/farmer-overrides-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,39 +33,27 @@ export async function GET(req: NextRequest) {
   if (guard) return guard;
 
   try {
-    const [owners, startDates] = await Promise.all([
+    const [owners, overrides, startDates] = await Promise.all([
       fetchAllOwners(),
+      getAllOverrides(),
       getAllStartDates(),
     ]);
 
-    // Mapeia owners por email (normalizado) para casar com a lista oficial
-    const ownerByEmail = new Map<string, { id: string; nome: string }>();
-    for (const owner of owners.values()) {
-      const email = normalizeEmail(owner.email);
-      if (!email) continue;
-      const nome =
-        `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() ||
-        owner.email ||
-        `Owner ${owner.id}`;
-      ownerByEmail.set(email, { id: owner.id, nome });
-    }
-
-    const farmers = Array.from(ALL_FARMER_EMAILS)
-      .map((email) => {
-        const owner = ownerByEmail.get(email);
-        return {
-          email,
-          ownerId: owner?.id ?? null,
-          nome: owner?.nome ?? "(não encontrado no HubSpot)",
-          squadId: squadOf(email),
-          startDate: owner ? startDates.get(owner.id) ?? null : null,
-        };
-      })
-      // Ordena por squad e depois nome — fica organizado pra Pri
+    // Usa o mesmo resolveFarmers do dashboard pra ficar 1-1:
+    //  - inclui adicionados pela Pri (override sem base)
+    //  - aplica squad do override quando existir (mover de squad)
+    //  - FILTRA OS OCULTOS (consistente com o dashboard)
+    const farmers = resolveFarmers(owners, overrides)
+      .filter((f) => !f.hidden)
+      .map((f) => ({
+        email: f.email,
+        ownerId: f.ownerId,
+        nome: f.nome,
+        squadId: f.squadId,
+        startDate: startDates.get(f.ownerId) ?? null,
+      }))
       .sort((a, b) => {
-        if (a.squadId !== b.squadId) {
-          return (a.squadId ?? "z").localeCompare(b.squadId ?? "z");
-        }
+        if (a.squadId !== b.squadId) return a.squadId.localeCompare(b.squadId);
         return a.nome.localeCompare(b.nome);
       });
 
