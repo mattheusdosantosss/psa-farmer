@@ -38,21 +38,24 @@ export async function GET(req: NextRequest) {
       getAllOverrides(),
     ]);
 
-    // Resolve a lista de farmers do dashboard (base + overrides),
-    // descartando os ocultos pra eles não pesarem nas chamadas seguintes
-    // nem aparecerem em qualquer agregação.
-    const resolved = resolveFarmers(owners, overrides).filter((f) => !f.hidden);
+    // Resolve a lista de farmers do dashboard (base + overrides). Calcula
+    // foundEmails ANTES de filtrar ocultos: ocultar é uma decisão da Pri
+    // sobre quem aparece no dashboard, não muda o fato de o e-mail existir
+    // no HubSpot. Calcular depois do filtro geraria alarme falso de
+    // "e-mail não encontrado" pra cada farmer ocultado.
+    const resolvedAll = resolveFarmers(owners, overrides);
+    const foundEmails = new Set(resolvedAll.map((f) => f.email));
+    const missingEmails = Array.from(ALL_FARMER_EMAILS).filter(
+      (e) => !foundEmails.has(e)
+    );
+
+    // Agora sim filtra ocultos — esses não pesam nas chamadas seguintes
+    // nem aparecem em qualquer agregação.
+    const resolved = resolvedAll.filter((f) => !f.hidden);
     const allowedOwnerIds = new Set(resolved.map((f) => f.ownerId));
 
     // Map ownerId → squadId resolvido (vence override sobre teams.ts)
     const squadByOwnerId = new Map(resolved.map((f) => [f.ownerId, f.squadId]));
-
-    // E-mails da base (teams.ts) que NÃO foram encontrados no HubSpot.
-    // Filtra ocultos da contagem pra não soar alarme falso.
-    const foundEmails = new Set(resolved.map((f) => f.email));
-    const missingEmails = Array.from(ALL_FARMER_EMAILS).filter(
-      (e) => !foundEmails.has(e)
-    );
 
     // 2) Deals (sequencial, depois tickets — evita estourar rate limit do
     //    HubSpot quando muitas páginas precisam ser paginadas em paralelo)
