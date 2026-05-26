@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import FarmerManager from "@/components/FarmerManager";
+
+type AdminTab = "datas" | "gerenciar";
 
 type FarmerRecord = {
   email: string;
@@ -41,6 +44,7 @@ export default function AdminFarmersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accessKey, setAccessKey] = useState("");
+  const [tab, setTab] = useState<AdminTab>("datas");
 
   useEffect(() => {
     const k = new URLSearchParams(window.location.search).get("key") || "";
@@ -64,8 +68,8 @@ export default function AdminFarmersPage() {
   }, [accessKey]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (tab === "datas") load();
+  }, [load, tab]);
 
   const setEdit = (ownerId: string, value: string) => {
     setEdits((prev) => {
@@ -175,15 +179,15 @@ export default function AdminFarmersPage() {
             </span>
           </div>
           <h1 className="font-display text-[36px] leading-[1.05] font-extrabold tracking-tight text-white">
-            Datas de início
+            Administração
             <br />
-            <span className="text-psa-orange">dos farmers.</span>
+            <span className="text-psa-orange">de farmers.</span>
           </h1>
           <p className="mt-4 text-sm text-white/85 max-w-md">
-            Defina a data em que cada farmer começou a atuar. Essa
-            informação alimenta a coluna "Tempo" no dashboard.
+            Gerencie quem aparece no dashboard, em qual squad, e a data de
+            início como farmer.
           </p>
-          {!loading && farmers.length > 0 && (
+          {tab === "datas" && !loading && farmers.length > 0 && (
             <div className="mt-4 text-xs text-white/70">
               {totalDefinidas} de {farmers.length} farmers com data definida
             </div>
@@ -191,8 +195,34 @@ export default function AdminFarmersPage() {
         </div>
       </section>
 
-      {/* Erro */}
-      {error && (
+      {/* Abas */}
+      <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
+        {[
+          { id: "datas" as const, label: "Datas de início" },
+          { id: "gerenciar" as const, label: "Gerenciar farmers" },
+        ].map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                active
+                  ? "bg-psa-ink text-white"
+                  : "text-psa-ink-soft hover:text-psa-ink hover:bg-psa-canvas"
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Aba: Gerenciar farmers */}
+      {tab === "gerenciar" && <FarmerManager accessKey={accessKey} />}
+
+      {/* Aba: Datas de início — Erro */}
+      {tab === "datas" && error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <div className="font-display font-semibold mb-1">Erro ao carregar</div>
           <div className="text-red-700">{error}</div>
@@ -204,8 +234,8 @@ export default function AdminFarmersPage() {
         </div>
       )}
 
-      {/* Lista de farmers */}
-      {loading ? (
+      {/* Aba: Datas de início — Lista de farmers */}
+      {tab === "datas" && (loading ? (
         <div className="rounded-2xl bg-psa-surface border border-psa-line p-8 text-center text-sm text-psa-ink-soft">
           Carregando…
         </div>
@@ -276,7 +306,7 @@ export default function AdminFarmersPage() {
             </div>
           </section>
         ))
-      )}
+      ))}
     </main>
   );
 }

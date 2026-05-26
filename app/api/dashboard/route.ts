@@ -6,8 +6,9 @@ import {
   getCsStages,
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
-import { ALL_FARMER_EMAILS, normalizeEmail } from "@/lib/teams";
+import { ALL_FARMER_EMAILS, resolveFarmers } from "@/lib/teams";
 import { getAllStartDates } from "@/lib/farmer-dates-store";
+import { getAllOverrides } from "@/lib/farmer-overrides-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,21 +32,24 @@ export async function GET(req: NextRequest) {
   const revenueMode: RevenueMode = modeRaw === "liquido" ? "liquido" : "bruto";
 
   try {
-    // 1) Owners primeiro — precisamos do mapa email→id pra montar o filtro
-    const owners = await fetchAllOwners();
+    // 1) Owners + overrides — precisamos dos dois pra montar a lista final
+    const [owners, overrides] = await Promise.all([
+      fetchAllOwners(),
+      getAllOverrides(),
+    ]);
 
-    // Resolve e-mails da lista oficial → owner IDs
-    const allowedOwnerIds = new Set<string>();
-    const foundEmails = new Set<string>();
-    for (const owner of owners.values()) {
-      const email = normalizeEmail(owner.email);
-      if (ALL_FARMER_EMAILS.has(email)) {
-        allowedOwnerIds.add(owner.id);
-        foundEmails.add(email);
-      }
-    }
+    // Resolve a lista de farmers do dashboard (base + overrides),
+    // descartando os ocultos pra eles não pesarem nas chamadas seguintes
+    // nem aparecerem em qualquer agregação.
+    const resolved = resolveFarmers(owners, overrides).filter((f) => !f.hidden);
+    const allowedOwnerIds = new Set(resolved.map((f) => f.ownerId));
 
-    // E-mails da lista oficial que NÃO foram encontrados (alerta de manutenção)
+    // Map ownerId → squadId resolvido (vence override sobre teams.ts)
+    const squadByOwnerId = new Map(resolved.map((f) => [f.ownerId, f.squadId]));
+
+    // E-mails da base (teams.ts) que NÃO foram encontrados no HubSpot.
+    // Filtra ocultos da contagem pra não soar alarme falso.
+    const foundEmails = new Set(resolved.map((f) => f.email));
     const missingEmails = Array.from(ALL_FARMER_EMAILS).filter(
       (e) => !foundEmails.has(e)
     );
@@ -85,6 +89,7 @@ export async function GET(req: NextRequest) {
       pipelineCsAtivo: PIPELINE_CS_ATIVO,
       csStages,
       startDates,
+      squadByOwnerId,
     });
 
     return NextResponse.json(data);

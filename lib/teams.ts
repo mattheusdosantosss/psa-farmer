@@ -81,3 +81,79 @@ export function isFarmer(email?: string | null): boolean {
 export function squadOf(email?: string | null): SquadId | null {
   return EMAIL_TO_SQUAD.get(normalizeEmail(email)) ?? null;
 }
+
+// ============================================================
+// Resolução de farmers — base (teams.ts) + overrides (KV)
+// ============================================================
+
+import type { Owner } from "./hubspot";
+import type { FarmerOverride } from "./farmer-overrides-store";
+
+export type ResolvedFarmer = {
+  ownerId: string;
+  email: string;
+  nome: string;
+  squadId: SquadId;
+  /** "base" = vem do teams.ts; "override" = adicionado/movido via admin. */
+  source: "base" | "override";
+  hidden: boolean;
+};
+
+function fullName(owner: Owner): string {
+  const nome = `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim();
+  return nome || owner.email || `Owner ${owner.id}`;
+}
+
+/**
+ * Resolve a lista final de farmers do dashboard, combinando a base
+ * hardcoded (teams.ts) com os overrides do KV (admin da Pri).
+ *
+ * Regras:
+ * - Owner em teams.ts: entra com a squad do teams.ts
+ * - Owner com override: squad do override vence (mover de squad)
+ * - Owner SÓ no override: entra como "adicionado pela Pri"
+ * - hidden=true: continua no resultado, mas marcado pra ser filtrado
+ *
+ * Retorna TODOS (inclusive ocultos) — quem chama decide se filtra.
+ */
+export function resolveFarmers(
+  owners: Map<string, Owner>,
+  overrides: Map<string, FarmerOverride>
+): ResolvedFarmer[] {
+  const result: ResolvedFarmer[] = [];
+  const seenOwnerIds = new Set<string>();
+
+  // 1) Owners listados em teams.ts (via email)
+  for (const owner of owners.values()) {
+    const email = normalizeEmail(owner.email);
+    const baseSquad = EMAIL_TO_SQUAD.get(email);
+    if (!baseSquad) continue;
+    const override = overrides.get(owner.id);
+    result.push({
+      ownerId: owner.id,
+      email,
+      nome: fullName(owner),
+      squadId: override?.squadId ?? baseSquad,
+      source: override ? "override" : "base",
+      hidden: override?.hidden ?? false,
+    });
+    seenOwnerIds.add(owner.id);
+  }
+
+  // 2) Owners SÓ no override (adicionados pela Pri, não estão no teams.ts)
+  for (const [ownerId, override] of overrides) {
+    if (seenOwnerIds.has(ownerId)) continue;
+    const owner = owners.get(ownerId);
+    if (!owner) continue; // owner não existe mais no HubSpot — ignora
+    result.push({
+      ownerId,
+      email: normalizeEmail(owner.email),
+      nome: fullName(owner),
+      squadId: override.squadId,
+      source: "override",
+      hidden: override.hidden,
+    });
+  }
+
+  return result;
+}

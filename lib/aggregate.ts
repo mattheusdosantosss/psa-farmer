@@ -209,10 +209,12 @@ export function aggregate(input: {
   pipelineCsAtivo: boolean;
   csStages: CsStagesResolved;
   startDates: Map<string, string>;
+  /** Override de squad por ownerId (admin). Se ausente, cai em squadOf(email). */
+  squadByOwnerId?: Map<string, SquadId>;
 }): DashboardData {
   const {
     deals, tickets, owners, allowedOwnerIds, missingEmails,
-    revenueMode, pipelineCsAtivo, csStages, startDates,
+    revenueMode, pipelineCsAtivo, csStages, startDates, squadByOwnerId,
   } = input;
 
   // Inicializa rows com zeros pra todo farmer permitido
@@ -224,7 +226,7 @@ export function aggregate(input: {
       ownerId,
       email,
       nome: ownerDisplayName(owner),
-      squadId: squadOf(email),
+      squadId: squadByOwnerId?.get(ownerId) ?? squadOf(email),
       ativo: !owner?.archived,
       startDate: startDates.get(ownerId) ?? null,
       diasAtivos: null,
