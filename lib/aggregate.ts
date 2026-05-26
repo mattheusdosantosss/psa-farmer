@@ -200,7 +200,10 @@ function computeScore(input: {
 // ============================================================
 
 export function aggregate(input: {
-  deals: Deal[];
+  /** Deals qualificados no período. Alimenta Demandas e Em aberto. */
+  dealsQualificados: Deal[];
+  /** Deals fechados no período (ganhos+perdidos). Alimenta Ganhos, Perdidos e Receita. */
+  dealsFechados: Deal[];
   tickets: Ticket[];
   owners: Map<string, Owner>;
   allowedOwnerIds: Set<string>;
@@ -213,7 +216,7 @@ export function aggregate(input: {
   squadByOwnerId?: Map<string, SquadId>;
 }): DashboardData {
   const {
-    deals, tickets, owners, allowedOwnerIds, missingEmails,
+    dealsQualificados, dealsFechados, tickets, owners, allowedOwnerIds, missingEmails,
     revenueMode, pipelineCsAtivo, csStages, startDates, squadByOwnerId,
   } = input;
 
@@ -249,8 +252,34 @@ export function aggregate(input: {
     });
   }
 
-  // Processa deals
-  for (const deal of deals) {
+  // ----- Pass 1: deals QUALIFICADOS no período -----
+  // Alimenta Demandas (todos) e Em aberto (qualificados ainda não-finais).
+  // Ganhos/perdidos NÃO são contados aqui — esses vêm do pass 2 com closedate.
+  for (const deal of dealsQualificados) {
+    const ownerId = deal.properties.sdrfarmer_responsavel;
+    if (!ownerId) continue;
+    const row = byFarmer.get(ownerId);
+    if (!row) continue;
+
+    row.demandas += 1;
+    if (isEmAberto(deal)) {
+      const lite: DealLite = {
+        id: deal.id,
+        dealname: deal.properties.dealname || "(sem nome)",
+        amount: parseAmount(deal, revenueMode),
+        closedate: deal.properties.closedate,
+        createdate: deal.properties.createdate,
+      };
+      row.emAberto += 1;
+      row.dealsEmAberto.push(lite);
+    }
+  }
+
+  // ----- Pass 2: deals FECHADOS no período -----
+  // Alimenta Ganhos, Perdidos e Receita. A query do HubSpot já garante
+  // closedate no período + dealstage em ganho/perdido, mas reclassificamos
+  // por segurança caso volte algo estranho.
+  for (const deal of dealsFechados) {
     const ownerId = deal.properties.sdrfarmer_responsavel;
     if (!ownerId) continue;
     const row = byFarmer.get(ownerId);
@@ -264,7 +293,6 @@ export function aggregate(input: {
       createdate: deal.properties.createdate,
     };
 
-    row.demandas += 1;
     if (isGanho(deal)) {
       row.ganhos += 1;
       row.receita += lite.amount;
@@ -272,9 +300,6 @@ export function aggregate(input: {
     } else if (isPerdido(deal)) {
       row.perdidos += 1;
       row.dealsPerdidos.push(lite);
-    } else if (isEmAberto(deal)) {
-      row.emAberto += 1;
-      row.dealsEmAberto.push(lite);
     }
   }
 
@@ -375,7 +400,8 @@ export function aggregate(input: {
     meta: {
       revenueMode,
       pipelineCsAtivo,
-      totalDeals: deals.length,
+      // Demandas é a métrica canônica; total de deals fechados é apenas auxiliar
+      totalDeals: dealsQualificados.length,
       totalFarmers: farmers.length,
       totalCsTickets: tickets.length,
       missingEmails,

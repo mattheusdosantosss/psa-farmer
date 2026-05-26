@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllOwners,
   fetchCsTickets,
-  fetchDealsForDashboard,
+  fetchDealsByQualification,
+  fetchDealsByClose,
   getCsStages,
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
@@ -57,9 +58,16 @@ export async function GET(req: NextRequest) {
     // Map ownerId → squadId resolvido (vence override sobre teams.ts)
     const squadByOwnerId = new Map(resolved.map((f) => [f.ownerId, f.squadId]));
 
-    // 2) Deals (sequencial, depois tickets — evita estourar rate limit do
-    //    HubSpot quando muitas páginas precisam ser paginadas em paralelo)
-    const deals = await fetchDealsForDashboard({
+    // 2) Deals em DOIS recortes temporais:
+    //    a) Qualificados no período → alimenta Demandas e Em aberto
+    //    b) Fechados no período (ganhos/perdidos) → alimenta Ganhos, Perdidos, Receita
+    //    Sequencial pra evitar rate limit 429 quando há muitas páginas.
+    const dealsQualificados = await fetchDealsByQualification({
+      from,
+      to,
+      ownerIds: Array.from(allowedOwnerIds),
+    });
+    const dealsFechados = await fetchDealsByClose({
       from,
       to,
       ownerIds: Array.from(allowedOwnerIds),
@@ -83,7 +91,8 @@ export async function GET(req: NextRequest) {
     const startDates = await getAllStartDates();
 
     const data = aggregate({
-      deals,
+      dealsQualificados,
+      dealsFechados,
       tickets,
       owners,
       allowedOwnerIds,

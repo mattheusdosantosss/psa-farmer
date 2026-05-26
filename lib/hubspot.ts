@@ -185,63 +185,77 @@ const DEAL_PROPS = [
 // - "Curador": leads vindos do time de curadoria (rótulo "Curador")
 const FARMER_LEAD_ORIGINS = ["Carteira do Farmer", "Curador"];
 
+// Campos de data possíveis pra recortar o período
+type DealDateField =
+  | "pipedrive___data_de_qualificacao"
+  | "closedate";
+
 /**
- * Busca deals para o dashboard.
+ * Busca deals do funil de farmer, recortando o período pelo campo de data
+ * indicado em `dateField`. Mantém os filtros invariantes:
+ *  - origem_do_lead ∈ FARMER_LEAD_ORIGINS
+ *  - sdrfarmer_responsavel ∈ ownerIds (ou HAS_PROPERTY no fallback)
+ *  - dateField HAS_PROPERTY (necessário pra ordenação e pra excluir deals
+ *    sem a data — um deal sem closedate, por exemplo, não fechou)
  *
- * Se `ownerIds` for fornecido, filtra apenas deals desses farmers (estrito).
- * Caso contrário, busca todos os deals com sdrfarmer_responsavel preenchido
- * (modo legado/fallback).
+ * Se `stages` for fornecido, restringe a esses dealstages — útil pra trazer
+ * só ganhos+perdidos quando consultamos por closedate (todo deal com
+ * closedate preenchido está em estado final, mas filtrar pelos estágios
+ * exatos é mais defensivo).
  */
-export async function fetchDealsForDashboard(opts: {
+async function fetchDealsByDateField(opts: {
   from?: string;
   to?: string;
   ownerIds?: string[];
+  dateField: DealDateField;
+  stages?: string[];
 }): Promise<Deal[]> {
+  const { from, to, ownerIds, dateField, stages } = opts;
+
   const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
-    { propertyName: "pipedrive___data_de_qualificacao", operator: "HAS_PROPERTY" },
-    // Só conta deals cuja Origem do Lead esteja em FARMER_LEAD_ORIGINS
-    // (Carteira do Farmer ou Curador). Inbound, indicação, chatbot, etc.
-    // existem com farmer atribuído mas NÃO contam como demanda do farmer.
+    { propertyName: dateField, operator: "HAS_PROPERTY" },
     { propertyName: "origem_do_lead", operator: "IN", values: FARMER_LEAD_ORIGINS },
   ];
 
-  if (opts.ownerIds && opts.ownerIds.length > 0) {
-    // Filtro estrito: só esses owners. Operador IN aceita até 100 valores.
+  if (ownerIds && ownerIds.length > 0) {
     filters.push({
       propertyName: "sdrfarmer_responsavel",
       operator: "IN",
-      values: opts.ownerIds.slice(0, 100),
+      values: ownerIds.slice(0, 100),
     });
   } else {
     filters.push({ propertyName: "sdrfarmer_responsavel", operator: "HAS_PROPERTY" });
   }
 
-  if (opts.from) {
+  if (stages && stages.length > 0) {
+    filters.push({ propertyName: "dealstage", operator: "IN", values: stages });
+  }
+
+  if (from) {
     filters.push({
-      propertyName: "pipedrive___data_de_qualificacao",
+      propertyName: dateField,
       operator: "GTE",
-      value: new Date(opts.from).getTime().toString(),
+      value: new Date(from).getTime().toString(),
     });
   }
-  if (opts.to) {
+  if (to) {
     filters.push({
-      propertyName: "pipedrive___data_de_qualificacao",
+      propertyName: dateField,
       operator: "LTE",
-      value: new Date(opts.to).getTime().toString(),
+      value: new Date(to).getTime().toString(),
     });
   }
 
   const all: Deal[] = [];
   let after: string | undefined;
   const limit = 100;
-  let pageCount = 0;
 
   do {
     const body: Record<string, unknown> = {
       filterGroups: [{ filters }],
       properties: DEAL_PROPS,
       limit,
-      sorts: [{ propertyName: "pipedrive___data_de_qualificacao", direction: "DESCENDING" }],
+      sorts: [{ propertyName: dateField, direction: "DESCENDING" }],
     };
     if (after) body.after = after;
 
@@ -252,14 +266,51 @@ export async function fetchDealsForDashboard(opts: {
 
     all.push(...data.results);
     after = data.paging?.next?.after;
-    pageCount++;
 
-    // Espaça as próximas chamadas pra evitar 429 quando há muitas páginas.
     if (after) await sleep(150);
   } while (after);
 
   return all;
 }
+
+/**
+ * Deals com QUALIFICAÇÃO no período.
+ * Alimenta: Demandas (totais) e Em aberto (qualificados no período
+ * que ainda não estão em estado final).
+ */
+export function fetchDealsByQualification(opts: {
+  from?: string;
+  to?: string;
+  ownerIds?: string[];
+}): Promise<Deal[]> {
+  return fetchDealsByDateField({ ...opts, dateField: "pipedrive___data_de_qualificacao" });
+}
+
+/**
+ * Deals com FECHAMENTO no período, restritos a estágios finais (ganho/perdido).
+ * Alimenta: Ganhos, Perdidos, Receita.
+ *
+ * O filtro `dealstage IN (ganhos+perdido)` é defensivo: em teoria todo deal
+ * com closedate está em estado final, mas garantimos pra evitar surpresa
+ * caso o HubSpot grave closedate em algum cenário inesperado.
+ */
+export function fetchDealsByClose(opts: {
+  from?: string;
+  to?: string;
+  ownerIds?: string[];
+}): Promise<Deal[]> {
+  return fetchDealsByDateField({
+    ...opts,
+    dateField: "closedate",
+    stages: [...GANHO_STAGES, STAGES.PERDIDO],
+  });
+}
+
+/**
+ * @deprecated Mantido por compat retro. Use fetchDealsByQualification
+ * ou fetchDealsByClose conforme a métrica.
+ */
+export const fetchDealsForDashboard = fetchDealsByQualification;
 
 // ============================================================
 // Tickets (pipeline CS)
