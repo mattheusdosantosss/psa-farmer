@@ -172,6 +172,20 @@ export default function AdminFarmersPage() {
           className="pointer-events-none absolute top-0 right-0 h-full w-1.5 bg-psa-orange"
         />
         <div className="relative px-8 py-8">
+          {/* Botão voltar pro dashboard */}
+          <div className="mb-5">
+            <a
+              href={`/${accessKey ? `?key=${encodeURIComponent(accessKey)}` : ""}`}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/70 hover:text-white transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+              Voltar para o dashboard
+            </a>
+          </div>
+
           <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-psa-orange/15 border border-psa-orange/30">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-psa-orange" />
             <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white">
