@@ -153,7 +153,7 @@ export default function Page() {
   }, [data?.meta.updatedAt]);
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
       {/* Hero / Header Bloco */}
       <section className="relative overflow-hidden rounded-3xl bg-psa-ink text-white shadow-card">
         {/* Faixas geométricas decorativas (vibe LP PSA) */}

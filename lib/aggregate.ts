@@ -40,6 +40,10 @@ export type FarmerRow = {
   ativo: boolean;
   /** Data ISO "YYYY-MM-DD" definida no admin (ou null se nunca foi definida) */
   startDate: string | null;
+  /** Dias desde startDate (null se startDate não definido) */
+  diasAtivos: number | null;
+  /** Score 0-99 ponderado (ver fórmula em computeScore) */
+  score: number;
   demandas: number;
   ganhos: number;
   perdidos: number;
@@ -148,6 +152,50 @@ function classificaTicket(
 }
 
 // ============================================================
+// Score (0-99) - ranking dos farmers
+// ============================================================
+//
+// 4 critérios com tetos, soma <= 100 (cap em 99 pra ser "0-99"):
+//
+// 1) Conversão %     -> até 30 pts  (ganhos/demandas × 100 × 1.5, teto 30)
+// 2) Ganhos absolut. -> até 30 pts  (ganhos × 1.5, teto 30 = 20 ganhos)
+// 3) Receita         -> até 25 pts  (receita / 200000 × 25, teto 25)
+// 4) Ritmo dem/dia   -> até 15 pts  (demandas/diasAtivos × 20, teto 15)
+//
+// O ritmo só é calculado quando diasAtivos > 0 (precisa de startDate
+// configurada no admin); caso contrário esse critério vale 0.
+//
+// Soma máxima teórica: 100 → fazemos cap em 99 pra atender "0-99".
+
+function computeScore(input: {
+  ganhos: number;
+  demandas: number;
+  receita: number;
+  diasAtivos: number | null;
+}): number {
+  const { ganhos, demandas, receita, diasAtivos } = input;
+
+  // 1) Conversão %
+  const convPct = demandas > 0 ? (ganhos / demandas) * 100 : 0;
+  const ptsConversao = Math.min(30, convPct * 1.5);
+
+  // 2) Ganhos absolutos
+  const ptsGanhos = Math.min(30, ganhos * 1.5);
+
+  // 3) Receita
+  const ptsReceita = Math.min(25, (receita / 200_000) * 25);
+
+  // 4) Ritmo demandas/dia
+  const ptsRitmo =
+    diasAtivos !== null && diasAtivos > 0
+      ? Math.min(15, (demandas / diasAtivos) * 20)
+      : 0;
+
+  const total = ptsConversao + ptsGanhos + ptsReceita + ptsRitmo;
+  return Math.min(99, Math.round(total));
+}
+
+// ============================================================
 // Agregador principal
 // ============================================================
 
@@ -179,6 +227,8 @@ export function aggregate(input: {
       squadId: squadOf(email),
       ativo: !owner?.archived,
       startDate: startDates.get(ownerId) ?? null,
+      diasAtivos: null,
+      score: 0,
       demandas: 0,
       ganhos: 0,
       perdidos: 0,
@@ -248,16 +298,34 @@ export function aggregate(input: {
     }
   }
 
-  // Derivadas: total CS, tx conversão e tx conclusão por farmer
+  // Derivadas: total CS, tx conversão, tx conclusão, diasAtivos e score
+  const today = new Date();
   for (const row of byFarmer.values()) {
     row.txConversao = row.demandas > 0 ? row.ganhos / row.demandas : 0;
     row.csDemandas = row.csConcluidos + row.csCancelados + row.csEmTramite;
     row.csTxConclusao = row.csDemandas > 0 ? row.csConcluidos / row.csDemandas : 0;
+
+    // Dias ativos a partir de startDate (admin)
+    if (row.startDate) {
+      const start = new Date(row.startDate);
+      if (!Number.isNaN(start.getTime())) {
+        const ms = today.getTime() - start.getTime();
+        row.diasAtivos = Math.max(0, Math.floor(ms / 86_400_000));
+      }
+    }
+
+    // Score 0-99 (4 critérios)
+    row.score = computeScore({
+      ganhos: row.ganhos,
+      demandas: row.demandas,
+      receita: row.receita,
+      diasAtivos: row.diasAtivos,
+    });
   }
 
-  // Ordena por mais ganhos -> mais demandas
+  // Ordena por score -> ganhos -> demandas (desempate)
   const farmers = Array.from(byFarmer.values()).sort(
-    (a, b) => b.ganhos - a.ganhos || b.demandas - a.demandas
+    (a, b) => b.score - a.score || b.ganhos - a.ganhos || b.demandas - a.demandas
   );
 
   // Agregação por squad

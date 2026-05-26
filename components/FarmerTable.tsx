@@ -42,20 +42,30 @@ type Props = {
 const numBtnClasses =
   "inline-block min-w-[2rem] px-1 rounded-md font-semibold hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer";
 
-const COLUNAS_NUMERICAS = 8; // Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Tempo, Diagnóstico
+const COLUNAS_NUMERICAS = 9; // Score, Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Tempo, Diagnóstico
+
+// Posição -> rótulo "1º", "2º" ... (1-based)
+const rankLabel = (idx: number) => `${idx + 1}º`;
+
+// Cor do score (faixas amplas pra leitura rápida)
+const scoreColor = (s: number) => {
+  if (s >= 70) return "bg-psa-orange-soft text-psa-orange";
+  if (s >= 40) return "bg-psa-blue-soft text-psa-blue";
+  return "bg-psa-canvas text-psa-ink-soft";
+};
 
 function SkeletonRow() {
   return (
     <tr className="border-t border-psa-line">
-      <td className="p-4">
-        <div className="flex items-center gap-3">
+      <td className="p-3">
+        <div className="flex items-center gap-2">
           <span className="skeleton w-8 h-8 rounded-full" />
           <span className="skeleton h-4 w-32 inline-block" />
         </div>
       </td>
       {Array.from({ length: COLUNAS_NUMERICAS }).map((_, i) => (
-        <td key={i} className="p-4 text-right">
-          <span className="skeleton h-4 w-12 inline-block" />
+        <td key={i} className="p-3 text-right">
+          <span className="skeleton h-4 w-10 inline-block" />
         </td>
       ))}
     </tr>
@@ -65,16 +75,17 @@ function SkeletonRow() {
 const HEAD = (
   <thead className="bg-psa-ink text-white">
     <tr>
-      <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Farmer</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Demandas</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Ganhos</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Perdidas</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Em aberto</th>
-      <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Dist.</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Conv.%</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Receita</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Tempo</th>
-      <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Diagnóstico</th>
+      <th className="text-center p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Score</th>
+      <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Farmer</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Demandas</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Ganhos</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Perdidas</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Em aberto</th>
+      <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Dist.</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Conv.%</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Receita</th>
+      <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Tempo</th>
+      <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Diagnóstico</th>
     </tr>
   </thead>
 );
@@ -118,14 +129,26 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
         <table className="w-full text-sm">
           {HEAD}
           <tbody>
-            {rows.map((f) => (
+            {rows.map((f, idx) => (
               <tr
                 key={f.ownerId}
                 className="border-t border-psa-line hover:bg-psa-canvas transition-colors"
               >
+                {/* Score + Rank */}
+                <td className="p-3 text-center whitespace-nowrap">
+                  <div className={`inline-flex flex-col items-center justify-center min-w-[44px] px-2 py-1 rounded-lg ${scoreColor(f.score)}`}>
+                    <span className="font-display font-bold text-base leading-none tabular-nums">
+                      {f.score}
+                    </span>
+                    <span className="text-[9px] uppercase tracking-wider mt-0.5 opacity-80">
+                      {rankLabel(idx)}
+                    </span>
+                  </div>
+                </td>
+
                 {/* Farmer + badge */}
-                <td className="p-4">
-                  <div className="flex items-center gap-3 min-w-[200px]">
+                <td className="p-3">
+                  <div className="flex items-center gap-2 min-w-[180px]">
                     <span className="w-8 h-8 rounded-full bg-psa-blue-soft text-psa-blue flex items-center justify-center font-display text-xs font-semibold shrink-0">
                       {initials(f.nome)}
                     </span>
@@ -145,10 +168,10 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                   </div>
                 </td>
 
-                <td className="p-4 text-right tabular-nums text-psa-ink-soft">
+                <td className="p-3 text-right tabular-nums text-psa-ink-soft">
                   {f.demandas}
                 </td>
-                <td className="p-4 text-right tabular-nums">
+                <td className="p-3 text-right tabular-nums">
                   <button
                     type="button"
                     onClick={() => handleClick(f, "ganhos")}
@@ -159,7 +182,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                     {f.ganhos}
                   </button>
                 </td>
-                <td className="p-4 text-right tabular-nums">
+                <td className="p-3 text-right tabular-nums">
                   <button
                     type="button"
                     onClick={() => handleClick(f, "perdidos")}
@@ -170,7 +193,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                     {f.perdidos}
                   </button>
                 </td>
-                <td className="p-4 text-right tabular-nums">
+                <td className="p-3 text-right tabular-nums">
                   <button
                     type="button"
                     onClick={() => handleClick(f, "aberto")}
@@ -183,7 +206,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                 </td>
 
                 {/* Dist. */}
-                <td className="p-4">
+                <td className="p-3">
                   <DistBar
                     ganhos={f.ganhos}
                     perdidos={f.perdidos}
@@ -191,12 +214,12 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                   />
                 </td>
 
-                <td className="p-4 text-right tabular-nums text-psa-ink-soft">
+                <td className="p-3 text-right tabular-nums text-psa-ink-soft">
                   {pct(f.txConversao)}
                 </td>
 
                 {/* Receita + "X deals" embaixo (clicável) */}
-                <td className="p-4 text-right whitespace-nowrap">
+                <td className="p-3 text-right whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => handleClick(f, "ganhos")}
@@ -214,7 +237,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                 </td>
 
                 {/* Tempo (dias desde startDate) */}
-                <td className="p-4 text-right whitespace-nowrap">
+                <td className="p-3 text-right whitespace-nowrap">
                   {f.startDate && daysSince(f.startDate) !== null ? (
                     <>
                       <div className="tabular-nums font-medium text-psa-blue">
@@ -232,7 +255,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                 </td>
 
                 {/* Diagnóstico */}
-                <td className="p-4 text-xs text-psa-ink-soft min-w-[180px]">
+                <td className="p-3 text-xs text-psa-ink-soft min-w-[170px]">
                   {diagnostico(f)}
                 </td>
               </tr>
