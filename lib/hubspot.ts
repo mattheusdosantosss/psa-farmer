@@ -83,7 +83,24 @@ async function hsFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`HubSpot ${res.status} em ${path}: ${text.slice(0, 300)}`);
+    // Tenta extrair info útil do payload de erro do HubSpot pra mensagens claras
+    let detail = text.slice(0, 500);
+    try {
+      const parsed = JSON.parse(text);
+      const propErrors = parsed?.validationResults
+        ?.map((v: { error?: string; name?: string; message?: string }) =>
+          `${v.name || "?"}: ${v.message || v.error || "?"}`
+        )
+        ?.join(" | ");
+      if (propErrors) {
+        detail = `Propriedades inválidas → ${propErrors}`;
+      } else if (parsed?.message) {
+        detail = parsed.message;
+      }
+    } catch {
+      // mantém o text bruto
+    }
+    throw new Error(`HubSpot ${res.status} em ${path}: ${detail}`);
   }
   return res.json() as Promise<T>;
 }
