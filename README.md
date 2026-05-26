@@ -61,3 +61,14 @@ Veja `.env.example` para a lista completa. Os principais são:
 - ⚠️ **Nunca** commite `.env`, `.env.local` ou qualquer arquivo com token real
 - O `.gitignore` já bloqueia esses arquivos, mas confira antes de cada commit
 - Em caso de vazamento de token: **rotacione imediatamente** no HubSpot
+
+## Nota sobre vulnerabilidades
+
+`npm audit` reporta CVEs em `next@14.2.35` (faixa ampla, vários falsos positivos) e em uma cópia aninhada de `postcss` dentro do Next. O fix definitivo exige migrar para Next 16+, o que é breaking change. Decisão atual: **aceitar e seguir** com 14.2.35, porque:
+
+- Dashboard é interno, com chave de acesso na URL
+- Não há upload público de imagem (a maioria das CVEs envolve Image Optimizer)
+- Não há usuário anônimo
+- Attack surface das CVEs reportadas é essencialmente nulo neste cenário
+
+Revisar essa decisão quando: (a) o dashboard for exposto publicamente, ou (b) tivermos folga pra migrar pro Next 16+.
