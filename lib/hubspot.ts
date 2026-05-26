@@ -70,7 +70,14 @@ function assertToken() {
   }
 }
 
-async function hsFetch<T>(path: string, init?: RequestInit): Promise<T> {
+// Pequeno delay entre requests/páginas para respeitar o rate limit do HubSpot.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function hsFetch<T>(
+  path: string,
+  init?: RequestInit,
+  attempt = 0
+): Promise<T> {
   assertToken();
   const res = await fetch(`${HUBSPOT_API}${path}`, {
     ...init,
@@ -81,9 +88,20 @@ async function hsFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
     cache: "no-store",
   });
+
+  // Retry automático em 429 (rate limit) — até 3 tentativas com backoff
+  if (res.status === 429 && attempt < 3) {
+    const retryAfter = Number(res.headers.get("Retry-After"));
+    // Retry-After em segundos. Se ausente, usa backoff progressivo.
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+    await sleep(waitMs);
+    return hsFetch<T>(path, init, attempt + 1);
+  }
+
   if (!res.ok) {
     const text = await res.text();
-    // Tenta extrair info útil do payload de erro do HubSpot pra mensagens claras
     let detail = text.slice(0, 500);
     try {
       const parsed = JSON.parse(text);
@@ -154,10 +172,6 @@ const DEAL_PROPS = [
   "pipedrive___data_de_qualificacao",
   "hs_lastmodifieddate",
 ];
-
-// Pequeno delay entre páginas para respeitar o rate limit do HubSpot
-// (100 req/s no plano padrão; ficamos bem abaixo disso).
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Busca deals para o dashboard.
@@ -253,11 +267,23 @@ const STAGES_ABERTOS_ENV = process.env.HUBSPOT_PIPELINE_CS_STAGES_ABERTOS || "";
  *  2) Caso contrário, consulta a API de pipelines e seleciona automaticamente
  *     todos os estágios com metadata.isClosed === false
  */
+// Cache em memória dos estágios abertos (TTL 1h).
+// Estágios da pipeline não mudam com frequência; cachear elimina uma
+// chamada à API a cada request do dashboard.
+let stagesAbertosCache: { ids: string[]; expiresAt: number } | null = null;
+const STAGES_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
 async function resolveCsStagesAbertos(): Promise<string[]> {
   if (STAGES_ABERTOS_ENV) {
     return STAGES_ABERTOS_ENV.split(",").map((s) => s.trim()).filter(Boolean);
   }
   if (!PIPELINE_CS) return [];
+
+  // Usa cache se ainda válido
+  const now = Date.now();
+  if (stagesAbertosCache && stagesAbertosCache.expiresAt > now) {
+    return stagesAbertosCache.ids;
+  }
 
   type Stage = { id: string; label: string; metadata?: { isClosed?: string | boolean } };
   type PipelineResponse = { stages: Stage[] };
@@ -270,7 +296,9 @@ async function resolveCsStagesAbertos(): Promise<string[]> {
   const isClosed = (s: Stage) =>
     s.metadata?.isClosed === true || s.metadata?.isClosed === "true";
 
-  return data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
+  const ids = data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
+  stagesAbertosCache = { ids, expiresAt: now + STAGES_CACHE_TTL_MS };
+  return ids;
 }
 
 /**

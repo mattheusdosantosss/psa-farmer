@@ -48,17 +48,17 @@ export async function GET(req: NextRequest) {
       (e) => !foundEmails.has(e)
     );
 
-    // 2) Deals e tickets em paralelo (com filtro de IDs no caso dos deals)
-    const [deals, tickets] = await Promise.all([
-      fetchDealsForDashboard({
-        from,
-        to,
-        ownerIds: Array.from(allowedOwnerIds),
-      }),
-      PIPELINE_CS_ATIVO
-        ? fetchCsTickets({ ownerIds: Array.from(allowedOwnerIds) })
-        : Promise.resolve([]),
-    ]);
+    // 2) Deals (sequencial, depois tickets — evita estourar rate limit do
+    //    HubSpot quando muitas páginas precisam ser paginadas em paralelo)
+    const deals = await fetchDealsForDashboard({
+      from,
+      to,
+      ownerIds: Array.from(allowedOwnerIds),
+    });
+
+    const tickets = PIPELINE_CS_ATIVO
+      ? await fetchCsTickets({ ownerIds: Array.from(allowedOwnerIds) })
+      : [];
 
     const data = aggregate({
       deals,
