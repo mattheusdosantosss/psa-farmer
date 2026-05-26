@@ -36,6 +36,7 @@ export type Deal = {
     sdrfarmer_responsavel?: string;
     pipedrive___data_de_qualificacao?: string;
     hs_lastmodifieddate?: string;
+    origem_do_lead?: string;
     [key: string]: string | undefined;
   };
 };
@@ -172,7 +173,14 @@ const DEAL_PROPS = [
   "sdrfarmer_responsavel",
   "pipedrive___data_de_qualificacao",
   "hs_lastmodifieddate",
+  "origem_do_lead",
 ];
+
+// Origem do Lead que define "demanda válida" pra dashboard de farmer.
+// IMPORTANTE: valor exato do internal value no HubSpot — "Carteira do Farmer"
+// (com espaços e capitalização preservadas). Trocar isso quebra TODAS as
+// métricas; confirmar em Settings → Properties → origem_do_lead → Opções.
+const FARMER_LEAD_ORIGIN = "Carteira do Farmer";
 
 /**
  * Busca deals para o dashboard.
@@ -188,6 +196,11 @@ export async function fetchDealsForDashboard(opts: {
 }): Promise<Deal[]> {
   const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
     { propertyName: "pipedrive___data_de_qualificacao", operator: "HAS_PROPERTY" },
+    // Só conta deals em que a Origem do Lead é "Carteira do Farmer".
+    // Inbound, indicação, etc. existem com farmer atribuído mas NÃO contam
+    // como demanda prospectada — esse é o filtro que faltava pra deixar
+    // o número de demandas refletir só prospecção ativa.
+    { propertyName: "origem_do_lead", operator: "EQ", value: FARMER_LEAD_ORIGIN },
   ];
 
   if (opts.ownerIds && opts.ownerIds.length > 0) {
