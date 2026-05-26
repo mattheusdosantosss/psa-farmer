@@ -14,6 +14,14 @@ const brl = (n: number) =>
 
 const num = (n: number) => n.toLocaleString("pt-BR");
 
+type TopoCs = {
+  demandas: number;
+  concluidos: number;
+  cancelados: number;
+  emTramite: number;
+  semEntregas: number;
+};
+
 type View = {
   demandas: number;
   ganhos: number;
@@ -21,6 +29,7 @@ type View = {
   emAberto: number;
   receitaTotal: number;
   farmers: FarmerRow[];
+  topoCs: TopoCs;
   leader?: string;
 };
 
@@ -30,6 +39,7 @@ function computeView(data: DashboardData | null, tab: TabValue): View | null {
     return {
       ...data.topo,
       farmers: data.farmers,
+      topoCs: data.topoCs,
     };
   }
   const squad = data.squads.find((s) => s.id === tab);
@@ -41,6 +51,13 @@ function computeView(data: DashboardData | null, tab: TabValue): View | null {
     emAberto: squad.emAberto,
     receitaTotal: squad.receitaTotal,
     farmers: squad.farmers,
+    topoCs: {
+      demandas: squad.csDemandas,
+      concluidos: squad.csConcluidos,
+      cancelados: squad.csCancelados,
+      emTramite: squad.csEmTramite,
+      semEntregas: squad.csSemEntregas,
+    },
     leader: squad.leader,
   };
 }
@@ -310,9 +327,10 @@ export default function Page() {
       </section>
 
       {/* Tramitação CS — só aparece se a pipeline estiver configurada */}
-      {data?.meta.pipelineCsAtivo && (
+      {data?.meta.pipelineCsAtivo && view && (
         <CsTramSection
-          rows={view?.farmers ?? []}
+          topo={view.topoCs}
+          rows={view.farmers}
           loading={loading}
         />
       )}

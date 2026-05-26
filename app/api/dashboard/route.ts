@@ -3,6 +3,7 @@ import {
   fetchAllOwners,
   fetchCsTickets,
   fetchDealsForDashboard,
+  getCsStages,
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
 import { ALL_FARMER_EMAILS, normalizeEmail } from "@/lib/teams";
@@ -57,8 +58,16 @@ export async function GET(req: NextRequest) {
     });
 
     const tickets = PIPELINE_CS_ATIVO
-      ? await fetchCsTickets({ ownerIds: Array.from(allowedOwnerIds) })
+      ? await fetchCsTickets({
+          ownerIds: Array.from(allowedOwnerIds),
+          from,
+          to,
+        })
       : [];
+
+    const csStages = PIPELINE_CS_ATIVO
+      ? await getCsStages()
+      : { abertos: [], concluidos: [], cancelados: [] };
 
     const data = aggregate({
       deals,
@@ -68,6 +77,7 @@ export async function GET(req: NextRequest) {
       missingEmails,
       revenueMode,
       pipelineCsAtivo: PIPELINE_CS_ATIVO,
+      csStages,
     });
 
     return NextResponse.json(data);

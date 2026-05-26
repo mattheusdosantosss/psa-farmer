@@ -258,86 +258,164 @@ const TICKET_PROPS = [
 ];
 
 const STAGES_ABERTOS_ENV = process.env.HUBSPOT_PIPELINE_CS_STAGES_ABERTOS || "";
+const STAGE_CONCLUIDO_ENV = process.env.HUBSPOT_PIPELINE_CS_STAGE_CONCLUIDO || "";
+const STAGE_CANCELADO_ENV = process.env.HUBSPOT_PIPELINE_CS_STAGE_CANCELADO || "";
+
+export type CsStagesResolved = {
+  abertos: string[];
+  concluidos: string[];
+  cancelados: string[];
+};
+
+// Cache em memória dos estágios CS (TTL 1h).
+// Estágios mudam tipo nunca; cachear elimina chamadas extras à API.
+let csStagesCache: { value: CsStagesResolved; expiresAt: number } | null = null;
+const STAGES_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
- * Resolve quais estágios da pipeline CS contam como "abertos" (tramitando).
+ * Resolve os IDs de estágios da pipeline CS por categoria.
  *
- * Ordem de prioridade:
- *  1) Se HUBSPOT_PIPELINE_CS_STAGES_ABERTOS está preenchida -> usa essa lista
- *  2) Caso contrário, consulta a API de pipelines e seleciona automaticamente
- *     todos os estágios com metadata.isClosed === false
+ * Categorias:
+ *  - abertos: estágios marcados como isClosed=false no HubSpot ("em trâmite")
+ *  - concluidos: por nome contendo "concl" (case-insensitive), ou ENV
+ *  - cancelados: por nome contendo "cancel" (case-insensitive), ou ENV
+ *
+ * Os demais estágios fechados (ex.: "Aprovação Arquivo", "Stand by") ficam
+ * fora das três categorias e, portanto, não pesam nas métricas.
  */
-// Cache em memória dos estágios abertos (TTL 1h).
-// Estágios da pipeline não mudam com frequência; cachear elimina uma
-// chamada à API a cada request do dashboard.
-let stagesAbertosCache: { ids: string[]; expiresAt: number } | null = null;
-const STAGES_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
-
-async function resolveCsStagesAbertos(): Promise<string[]> {
-  if (STAGES_ABERTOS_ENV) {
-    return STAGES_ABERTOS_ENV.split(",").map((s) => s.trim()).filter(Boolean);
+async function resolveCsStages(): Promise<CsStagesResolved> {
+  if (!PIPELINE_CS) {
+    return { abertos: [], concluidos: [], cancelados: [] };
   }
-  if (!PIPELINE_CS) return [];
 
-  // Usa cache se ainda válido
   const now = Date.now();
-  if (stagesAbertosCache && stagesAbertosCache.expiresAt > now) {
-    return stagesAbertosCache.ids;
+  if (csStagesCache && csStagesCache.expiresAt > now) {
+    return csStagesCache.value;
   }
 
-  type Stage = { id: string; label: string; metadata?: { isClosed?: string | boolean } };
+  type Stage = {
+    id: string;
+    label: string;
+    metadata?: { isClosed?: string | boolean };
+  };
   type PipelineResponse = { stages: Stage[] };
 
   const data: PipelineResponse = await hsFetch(
     `/crm/v3/pipelines/tickets/${encodeURIComponent(PIPELINE_CS)}`
   );
 
-  // HubSpot retorna isClosed como string "true"/"false" em alguns lugares
   const isClosed = (s: Stage) =>
     s.metadata?.isClosed === true || s.metadata?.isClosed === "true";
 
-  const ids = data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
-  stagesAbertosCache = { ids, expiresAt: now + STAGES_CACHE_TTL_MS };
-  return ids;
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // Abertos: ENV tem prioridade; caso vazio, usa isClosed=false
+  const abertos = STAGES_ABERTOS_ENV
+    ? STAGES_ABERTOS_ENV.split(",").map((s) => s.trim()).filter(Boolean)
+    : data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
+
+  // Concluídos: ENV tem prioridade; caso vazio, infere pelo label
+  const concluidos = STAGE_CONCLUIDO_ENV
+    ? STAGE_CONCLUIDO_ENV.split(",").map((s) => s.trim()).filter(Boolean)
+    : data.stages
+        .filter((s) => isClosed(s) && norm(s.label).includes("conclu"))
+        .map((s) => s.id);
+
+  // Cancelados: idem
+  const cancelados = STAGE_CANCELADO_ENV
+    ? STAGE_CANCELADO_ENV.split(",").map((s) => s.trim()).filter(Boolean)
+    : data.stages
+        .filter((s) => isClosed(s) && norm(s.label).includes("cancel"))
+        .map((s) => s.id);
+
+  const value: CsStagesResolved = { abertos, concluidos, cancelados };
+  csStagesCache = { value, expiresAt: now + STAGES_CACHE_TTL_MS };
+  return value;
+}
+
+export async function getCsStages(): Promise<CsStagesResolved> {
+  return resolveCsStages();
 }
 
 /**
- * Tickets na pipeline CS que estão em estágio ABERTO (tramitando).
- * - Filtra por owner se ownerIds for fornecido (mais eficiente, evita rate limit)
- * - Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado
+ * Tickets na pipeline CS para o dashboard de tramitação.
+ *
+ * Estratégia:
+ * - Busca TODOS os tickets em estágios relevantes (abertos + concluídos +
+ *   cancelados) — outros fechados (Aprovação, Stand by) ficam de fora.
+ * - Para "concluídos" e "cancelados", aplica filtro de período via createdate.
+ * - Para "abertos" (em trâmite hoje), traz independente da data — quem está
+ *   em trâmite agora interessa mesmo que tenha sido criado antes do período.
+ *
+ * Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado.
  */
 export async function fetchCsTickets(opts?: {
   ownerIds?: string[];
+  from?: string;
+  to?: string;
 }): Promise<Ticket[]> {
   if (!PIPELINE_CS) return [];
 
-  const stagesAbertos = await resolveCsStagesAbertos();
-  if (stagesAbertos.length === 0) {
-    console.warn("[hubspot] Pipeline CS sem estágios abertos resolvidos");
+  const stages = await resolveCsStages();
+  const finaisDoPeriodo = [...stages.concluidos, ...stages.cancelados];
+
+  if (stages.abertos.length === 0 && finaisDoPeriodo.length === 0) {
+    console.warn("[hubspot] Pipeline CS sem estágios resolvidos");
     return [];
   }
 
-  const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
-    { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
-    { propertyName: "hs_pipeline_stage", operator: "IN", values: stagesAbertos },
-  ];
+  const ownerFilter = opts?.ownerIds && opts.ownerIds.length > 0
+    ? {
+        propertyName: "hubspot_owner_id",
+        operator: "IN",
+        values: opts.ownerIds.slice(0, 100),
+      }
+    : { propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" };
 
-  if (opts?.ownerIds && opts.ownerIds.length > 0) {
-    filters.push({
-      propertyName: "hubspot_owner_id",
-      operator: "IN",
-      values: opts.ownerIds.slice(0, 100),
+  // Grupo 1: tickets ABERTOS (todos, sem filtro de data)
+  const grupoAbertos =
+    stages.abertos.length > 0
+      ? [{
+          filters: [
+            { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+            { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.abertos },
+            ownerFilter,
+          ],
+        }]
+      : [];
+
+  // Grupo 2: tickets CONCLUÍDOS/CANCELADOS criados no período
+  const filtersFinais: Array<Record<string, unknown>> = [
+    { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+    { propertyName: "hs_pipeline_stage", operator: "IN", values: finaisDoPeriodo },
+    ownerFilter,
+  ];
+  if (opts?.from) {
+    filtersFinais.push({
+      propertyName: "createdate",
+      operator: "GTE",
+      value: new Date(opts.from).getTime().toString(),
     });
-  } else {
-    filters.push({ propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" });
   }
+  if (opts?.to) {
+    filtersFinais.push({
+      propertyName: "createdate",
+      operator: "LTE",
+      value: new Date(opts.to).getTime().toString(),
+    });
+  }
+  const grupoFinais = finaisDoPeriodo.length > 0 ? [{ filters: filtersFinais }] : [];
+
+  const filterGroups = [...grupoAbertos, ...grupoFinais];
+  if (filterGroups.length === 0) return [];
 
   const all: Ticket[] = [];
   let after: string | undefined;
 
   do {
     const body: Record<string, unknown> = {
-      filterGroups: [{ filters }],
+      filterGroups, // OR entre grupos (abertos OU finais-do-período)
       properties: TICKET_PROPS,
       limit: 100,
     };

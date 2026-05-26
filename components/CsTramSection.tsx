@@ -3,6 +3,9 @@ import KpiCard from "./KpiCard";
 
 const num = (n: number) => n.toLocaleString("pt-BR");
 
+const pct = (n: number) =>
+  (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+
 const initials = (nome: string) => {
   const parts = nome.trim().split(/\s+/);
   const first = parts[0]?.[0] || "?";
@@ -10,22 +13,63 @@ const initials = (nome: string) => {
   return (first + last).toUpperCase();
 };
 
+type Topo = {
+  demandas: number;
+  concluidos: number;
+  cancelados: number;
+  emTramite: number;
+  semEntregas: number;
+};
+
 type Props = {
-  rows: FarmerRow[]; // pode ser todos os farmers ou só os de uma squad
+  topo: Topo;
+  rows: FarmerRow[];
   loading?: boolean;
 };
 
-export default function CsTramSection({ rows, loading = false }: Props) {
-  // Ordena por mais tramitações primeiro
-  const ranked = [...rows].sort((a, b) => b.tramCs - a.tramCs);
-  const total = ranked.reduce((sum, f) => sum + f.tramCs, 0);
-  const farmersComTramitacao = ranked.filter((f) => f.tramCs > 0);
-  const farmersSemTramitacao = ranked.filter((f) => f.tramCs === 0).length;
+const HEAD = (
+  <thead className="bg-psa-ink text-white">
+    <tr>
+      <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Farmer</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Demandas</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Concluídos</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Cancelados</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Em trâmite</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Tx Conclusão</th>
+    </tr>
+  </thead>
+);
+
+function SkeletonRow() {
+  return (
+    <tr className="border-t border-psa-line">
+      <td className="p-4">
+        <div className="flex items-center gap-3">
+          <span className="skeleton w-8 h-8 rounded-full" />
+          <span className="skeleton h-4 w-32 inline-block" />
+        </div>
+      </td>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <td key={i} className="p-4 text-right">
+          <span className="skeleton h-4 w-12 inline-block" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+export default function CsTramSection({ topo, rows, loading = false }: Props) {
+  // Ordena: concluídos primeiro, depois demandas
+  const ranked = [...rows].sort(
+    (a, b) => b.csConcluidos - a.csConcluidos || b.csDemandas - a.csDemandas
+  );
+
+  const hasAnyData = ranked.some((f) => f.csDemandas > 0);
 
   return (
-    <section>
+    <section className="space-y-4">
       {/* Título da seção */}
-      <div className="flex items-baseline justify-between mb-4">
+      <div className="flex items-baseline justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-block w-2 h-2 rounded-sm bg-psa-orange" />
@@ -34,40 +78,53 @@ export default function CsTramSection({ rows, loading = false }: Props) {
             </span>
           </div>
           <h2 className="font-display text-lg font-semibold text-psa-ink">
-            Tramitação CS
+            Detalhe da tramitação
           </h2>
         </div>
         {!loading && (
           <span className="text-xs text-psa-ink-soft">
-            {farmersComTramitacao.length}{" "}
-            {farmersComTramitacao.length === 1
-              ? "farmer com tickets em trâmite"
-              : "farmers com tickets em trâmite"}
+            {ranked.length}{" "}
+            {ranked.length === 1 ? "farmer" : "farmers"} ·{" "}
+            {topo.demandas} {topo.demandas === 1 ? "ticket" : "tickets"}
           </span>
         )}
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* KPIs — mesma estrutura de 5 cards da seção de vendas */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          label="Total em trâmite"
-          value={loading ? "" : num(total)}
-          accent="orange"
-          hint="Tickets abertos no funil CS"
-          loading={loading}
-        />
-        <KpiCard
-          label="Farmers ativos"
-          value={loading ? "" : num(farmersComTramitacao.length)}
+          label="Demandas"
+          value={num(topo.demandas)}
           accent="blue"
-          hint="Com pelo menos 1 ticket aberto"
+          hint="Tickets criados no período + em trâmite"
           loading={loading}
         />
         <KpiCard
-          label="Farmers sem trâmite"
-          value={loading ? "" : num(farmersSemTramitacao)}
+          label="Concluídos"
+          value={num(topo.concluidos)}
+          accent="orange"
+          hint="Tickets entregues no período"
+          loading={loading}
+        />
+        <KpiCard
+          label="Sem entregas"
+          value={num(topo.semEntregas)}
           accent="ink"
-          hint="Sem nenhum ticket aberto no período"
+          hint="Farmers sem ticket concluído"
+          loading={loading}
+        />
+        <KpiCard
+          label="Em trâmite"
+          value={num(topo.emTramite)}
+          accent="blue"
+          hint="Tickets ainda em andamento"
+          loading={loading}
+        />
+        <KpiCard
+          label="Cancelados"
+          value={num(topo.cancelados)}
+          accent="ink"
+          hint="Tickets cancelados no período"
           loading={loading}
         />
       </div>
@@ -76,52 +133,29 @@ export default function CsTramSection({ rows, loading = false }: Props) {
       {loading ? (
         <div className="rounded-2xl bg-psa-surface border border-psa-line shadow-card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-psa-ink text-white">
-              <tr>
-                <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Farmer</th>
-                <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Tickets em trâmite</th>
-              </tr>
-            </thead>
+            {HEAD}
             <tbody>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-t border-psa-line">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="skeleton w-8 h-8 rounded-full" />
-                      <span className="skeleton h-4 w-32 inline-block" />
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <span className="skeleton h-4 w-10 inline-block" />
-                  </td>
-                </tr>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonRow key={i} />
               ))}
             </tbody>
           </table>
         </div>
-      ) : ranked.length === 0 ? (
+      ) : !hasAnyData ? (
         <div className="rounded-2xl bg-psa-surface border border-psa-line p-12 text-center shadow-card">
           <div className="font-display text-lg font-semibold text-psa-ink">
-            Nenhum ticket em trâmite
+            Nenhum ticket no período
           </div>
           <p className="mt-2 text-sm text-psa-ink-soft max-w-sm mx-auto">
-            Ninguém da squad tem tickets abertos na pipeline CS no momento.
+            Ajuste o filtro de período ou confirme se há tickets atribuídos
+            aos farmers na pipeline CS.
           </p>
         </div>
       ) : (
         <div className="rounded-2xl bg-psa-surface border border-psa-line shadow-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-psa-ink text-white">
-                <tr>
-                  <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">
-                    Farmer
-                  </th>
-                  <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">
-                    Tickets em trâmite
-                  </th>
-                </tr>
-              </thead>
+              {HEAD}
               <tbody>
                 {ranked.map((f) => (
                   <tr
@@ -136,8 +170,20 @@ export default function CsTramSection({ rows, loading = false }: Props) {
                         <span className="font-medium text-psa-ink">{f.nome}</span>
                       </div>
                     </td>
+                    <td className="p-4 text-right tabular-nums text-psa-ink-soft">
+                      {f.csDemandas}
+                    </td>
                     <td className="p-4 text-right tabular-nums font-semibold text-psa-orange">
-                      {f.tramCs}
+                      {f.csConcluidos}
+                    </td>
+                    <td className="p-4 text-right tabular-nums text-psa-ink-soft">
+                      {f.csCancelados}
+                    </td>
+                    <td className="p-4 text-right tabular-nums text-psa-ink-soft">
+                      {f.csEmTramite}
+                    </td>
+                    <td className="p-4 text-right tabular-nums font-medium text-psa-ink">
+                      {pct(f.csTxConclusao)}
                     </td>
                   </tr>
                 ))}
