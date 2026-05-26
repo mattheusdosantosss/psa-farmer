@@ -18,6 +18,21 @@ const initials = (nome: string) => {
 const diagnostico = (f: FarmerRow) =>
   `${f.ganhos} ${f.ganhos === 1 ? "ganho" : "ganhos"} · conv. ${pct(f.txConversao)} · ${f.emAberto} em aberto`;
 
+const daysSince = (iso?: string | null) => {
+  if (!iso) return null;
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return null;
+  const today = new Date();
+  const ms = today.getTime() - start.getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
+};
+
+const formatBR = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+};
+
 type Props = {
   rows: FarmerRow[];
   loading?: boolean;
@@ -27,7 +42,7 @@ type Props = {
 const numBtnClasses =
   "inline-block min-w-[2rem] px-1 rounded-md font-semibold hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer";
 
-const COLUNAS_NUMERICAS = 7; // Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Diagnóstico
+const COLUNAS_NUMERICAS = 8; // Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Tempo, Diagnóstico
 
 function SkeletonRow() {
   return (
@@ -58,6 +73,7 @@ const HEAD = (
       <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Dist.</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Conv.%</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Receita</th>
+      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Tempo</th>
       <th className="text-left p-4 font-display font-semibold text-xs uppercase tracking-wider">Diagnóstico</th>
     </tr>
   </thead>
@@ -195,6 +211,24 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                       {f.ganhos} {f.ganhos === 1 ? "deal" : "deals"}
                     </div>
                   </button>
+                </td>
+
+                {/* Tempo (dias desde startDate) */}
+                <td className="p-4 text-right whitespace-nowrap">
+                  {f.startDate && daysSince(f.startDate) !== null ? (
+                    <>
+                      <div className="tabular-nums font-medium text-psa-blue">
+                        {daysSince(f.startDate)}d
+                      </div>
+                      <div className="text-[10px] text-psa-ink-soft mt-0.5">
+                        desde {formatBR(f.startDate)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[10px] text-psa-ink-soft italic">
+                      sem data
+                    </div>
+                  )}
                 </td>
 
                 {/* Diagnóstico */}

@@ -7,6 +7,7 @@ import {
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
 import { ALL_FARMER_EMAILS, normalizeEmail } from "@/lib/teams";
+import { getAllStartDates } from "@/lib/farmer-dates-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +70,11 @@ export async function GET(req: NextRequest) {
       ? await getCsStages()
       : { abertos: [], concluidos: [], cancelados: [] };
 
+    // Datas de início dos farmers (do Vercel KV). Se KV indisponível,
+    // getAllStartDates retorna Map vazio e o dashboard segue sem a
+    // coluna "Tempo" — degrada com elegância.
+    const startDates = await getAllStartDates();
+
     const data = aggregate({
       deals,
       tickets,
@@ -78,6 +84,7 @@ export async function GET(req: NextRequest) {
       revenueMode,
       pipelineCsAtivo: PIPELINE_CS_ATIVO,
       csStages,
+      startDates,
     });
 
     return NextResponse.json(data);

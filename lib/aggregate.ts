@@ -38,6 +38,8 @@ export type FarmerRow = {
   nome: string;
   squadId: SquadId | null;
   ativo: boolean;
+  /** Data ISO "YYYY-MM-DD" definida no admin (ou null se nunca foi definida) */
+  startDate: string | null;
   demandas: number;
   ganhos: number;
   perdidos: number;
@@ -158,10 +160,11 @@ export function aggregate(input: {
   revenueMode: RevenueMode;
   pipelineCsAtivo: boolean;
   csStages: CsStagesResolved;
+  startDates: Map<string, string>;
 }): DashboardData {
   const {
     deals, tickets, owners, allowedOwnerIds, missingEmails,
-    revenueMode, pipelineCsAtivo, csStages,
+    revenueMode, pipelineCsAtivo, csStages, startDates,
   } = input;
 
   // Inicializa rows com zeros pra todo farmer permitido
@@ -175,6 +178,7 @@ export function aggregate(input: {
       nome: ownerDisplayName(owner),
       squadId: squadOf(email),
       ativo: !owner?.archived,
+      startDate: startDates.get(ownerId) ?? null,
       demandas: 0,
       ganhos: 0,
       perdidos: 0,
