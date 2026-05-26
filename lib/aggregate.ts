@@ -21,6 +21,7 @@ export type FarmerRow = {
   email: string;
   nome: string;
   squadId: SquadId | null;
+  ativo: boolean;
   demandas: number;
   ganhos: number;
   perdidos: number;
@@ -77,6 +78,7 @@ export type DashboardData = {
     totalFarmers: number;
     totalCsTickets: number;
     missingEmails: string[];
+    updatedAt: string; // ISO datetime do momento em que a API processou
   };
 };
 
@@ -151,6 +153,7 @@ export function aggregate(input: {
       email,
       nome: ownerDisplayName(owner),
       squadId: squadOf(email),
+      ativo: !owner?.archived,
       demandas: 0,
       ganhos: 0,
       perdidos: 0,
@@ -260,6 +263,7 @@ export function aggregate(input: {
       totalFarmers: farmers.length,
       totalCsTickets: tickets.length,
       missingEmails,
+      updatedAt: new Date().toISOString(),
     },
   };
 }

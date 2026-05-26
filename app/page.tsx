@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import KpiCard from "@/components/KpiCard";
 import FarmerTable from "@/components/FarmerTable";
+import FarmersToolbar, { type FarmerFilter } from "@/components/FarmersToolbar";
 import CsTramSection from "@/components/CsTramSection";
 import PeriodFilter from "@/components/PeriodFilter";
 import type { TabValue } from "@/components/TabsBar";
@@ -67,6 +68,8 @@ export default function Page() {
   const [mode, setMode] = useState<"bruto" | "liquido">("bruto");
   const [tab, setTab] = useState<TabValue>("all");
   const [accessKey, setAccessKey] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<FarmerFilter>("todos");
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,33 @@ export default function Page() {
   }, [queryString]);
 
   const view = computeView(data, tab);
+
+  // Normaliza pra busca case- e accent-insensitive
+  const normalize = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const filteredFarmers = useMemo(() => {
+    if (!view) return [];
+    const q = normalize(search.trim());
+    return view.farmers.filter((f) => {
+      if (filter === "com_ganhos" && f.ganhos === 0) return false;
+      if (filter === "sem_ganhos" && f.ganhos > 0) return false;
+      if (q && !normalize(f.nome).includes(q)) return false;
+      return true;
+    });
+  }, [view, search, filter]);
+
+  const updatedAtFormatted = useMemo(() => {
+    if (!data?.meta.updatedAt) return null;
+    const d = new Date(data.meta.updatedAt);
+    return d.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, [data?.meta.updatedAt]);
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
@@ -314,14 +344,30 @@ export default function Page() {
           </h2>
           {data && !loading && view && (
             <span className="text-xs text-psa-ink-soft">
-              {view.farmers.length}{" "}
+              {filteredFarmers.length}/{view.farmers.length}{" "}
               {view.farmers.length === 1 ? "farmer" : "farmers"}
               {tab === "all" && ` · ${data.meta.totalDeals} ${data.meta.totalDeals === 1 ? "negócio" : "negócios"}`}
+              {updatedAtFormatted && (
+                <>
+                  {" · "}
+                  <span title="Última atualização dos dados">
+                    Atualizado {updatedAtFormatted}
+                  </span>
+                </>
+              )}
             </span>
           )}
         </div>
+
+        <FarmersToolbar
+          search={search}
+          onSearch={setSearch}
+          filter={filter}
+          onFilter={setFilter}
+        />
+
         <FarmerTable
-          rows={view?.farmers ?? []}
+          rows={filteredFarmers}
           loading={loading}
         />
       </section>

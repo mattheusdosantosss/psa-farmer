@@ -58,6 +58,7 @@ export type Owner = {
   lastName?: string;
   email?: string;
   userId?: number;
+  archived?: boolean;
 };
 
 // ============================================================
