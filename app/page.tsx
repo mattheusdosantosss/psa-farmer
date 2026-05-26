@@ -249,8 +249,8 @@ export default function Page() {
         </div>
       )}
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* KPIs — 4 cards + 1 hero (Receita ocupa 2 colunas) */}
+      <section className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <KpiCard
           label="Demandas"
           value={view ? num(view.demandas) : 0}
@@ -279,13 +279,16 @@ export default function Page() {
           hint="Ainda na esteira do funil"
           loading={loading}
         />
-        <KpiCard
-          label="Receita total"
-          value={view ? brl(view.receitaTotal) : "R$ 0,00"}
-          accent="orange"
-          hint={mode === "bruto" ? "Valor bruto" : "Valor líquido"}
-          loading={loading}
-        />
+        <div className="col-span-2">
+          <KpiCard
+            label="Receita total"
+            value={view ? brl(view.receitaTotal) : "R$ 0,00"}
+            accent="orange"
+            hint={mode === "bruto" ? "Valor bruto" : "Valor líquido"}
+            loading={loading}
+            featured
+          />
+        </div>
       </section>
 
       {/* Tabela */}
