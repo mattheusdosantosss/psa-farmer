@@ -1,0 +1,150 @@
+# ============================================================
+# DEPENDÊNCIAS
+# ============================================================
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# ============================================================
+# BUILDS E ARTEFATOS DE COMPILAÇÃO
+# ============================================================
+.next/
+out/
+build/
+dist/
+.vercel/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ============================================================
+# VARIÁVEIS DE AMBIENTE E SEGREDOS (CRÍTICO)
+# ============================================================
+# Bloqueia QUALQUER variante de .env, exceto o .env.example público
+.env
+.env.*
+!.env.example
+
+# Tokens, chaves e credenciais soltos no repo
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.csr
+*.keystore
+*.jks
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+known_hosts
+authorized_keys
+
+# Configs de cloud que costumam vazar credencial
+.aws/
+.azure/
+.gcp/
+gcp-service-account*.json
+service-account*.json
+firebase-adminsdk*.json
+credentials.json
+credentials*.json
+secrets.json
+secrets/
+*-secret.yaml
+*-secret.yml
+
+# ============================================================
+# LOGS
+# ============================================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.eslintcache
+
+# ============================================================
+# CACHES E TEMPORÁRIOS
+# ============================================================
+.cache/
+.parcel-cache/
+.swc/
+.tmp/
+.temp/
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ============================================================
+# COBERTURA E TESTES
+# ============================================================
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+
+# ============================================================
+# DUMPS DE BANCO DE DADOS
+# ============================================================
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+dump.rdb
+
+# ============================================================
+# IDEs E EDITORES
+# ============================================================
+.vscode/
+!.vscode/settings.json.example
+.idea/
+.fleet/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.history/
+.ionide/
+
+# ============================================================
+# SISTEMA OPERACIONAL
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# DADOS LOCAIS E EXPORTS SENSÍVEIS
+# ============================================================
+# Exports de planilhas, CSVs com dados de clientes, backups
+*.xlsx
+*.xls
+*.csv
+!docs/**/*.csv
+!examples/**/*.csv
+backups/
+exports/
+data-local/
+
+# ============================================================
+# CLAUDE / IA / OUTROS
+# ============================================================
+.claude/
+.cursor/
