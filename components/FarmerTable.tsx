@@ -8,13 +8,6 @@ const brl = (n: number) =>
 const pct = (n: number) =>
   (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
 
-const initials = (nome: string) => {
-  const parts = nome.trim().split(/\s+/);
-  const first = parts[0]?.[0] || "?";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
-};
-
 const diagnostico = (f: FarmerRow) =>
   `${f.ganhos} ${f.ganhos === 1 ? "ganho" : "ganhos"} · conv. ${pct(f.txConversao)} · ${f.emAberto} em aberto`;
 
@@ -57,13 +50,13 @@ const scoreColor = (s: number) => {
 function SkeletonRow() {
   return (
     <tr className="border-t border-psa-line">
-      <td className="p-3">
-        <div className="flex items-center gap-2">
-          <span className="skeleton w-8 h-8 rounded-full" />
-          <span className="skeleton h-4 w-32 inline-block" />
-        </div>
+      <td className="p-3 text-center">
+        <span className="skeleton h-10 w-12 inline-block rounded-lg" />
       </td>
-      {Array.from({ length: COLUNAS_NUMERICAS }).map((_, i) => (
+      <td className="p-3">
+        <span className="skeleton h-4 w-32 inline-block" />
+      </td>
+      {Array.from({ length: COLUNAS_NUMERICAS - 1 }).map((_, i) => (
         <td key={i} className="p-3 text-right">
           <span className="skeleton h-4 w-10 inline-block" />
         </td>
@@ -148,22 +141,17 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
 
                 {/* Farmer + badge */}
                 <td className="p-3">
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="w-8 h-8 rounded-full bg-psa-blue-soft text-psa-blue flex items-center justify-center font-display text-xs font-semibold shrink-0">
-                      {initials(f.nome)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-medium text-psa-ink truncate">{f.nome}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span
-                          className={`inline-block w-1.5 h-1.5 rounded-full ${
-                            f.ativo ? "bg-green-500" : "bg-psa-ink-soft"
-                          }`}
-                        />
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-psa-ink-soft">
-                          {f.ativo ? "Ativo" : "Arquivado"}
-                        </span>
-                      </div>
+                  <div className="min-w-[180px]">
+                    <div className="font-medium text-psa-ink truncate">{f.nome}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span
+                        className={`inline-block w-1.5 h-1.5 rounded-full ${
+                          f.ativo ? "bg-green-500" : "bg-psa-ink-soft"
+                        }`}
+                      />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-psa-ink-soft">
+                        {f.ativo ? "Ativo" : "Arquivado"}
+                      </span>
                     </div>
                   </div>
                 </td>
