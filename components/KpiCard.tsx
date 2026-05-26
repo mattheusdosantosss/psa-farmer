@@ -5,6 +5,8 @@ type Props = {
   accent?: "orange" | "blue" | "ink";
   loading?: boolean;
   featured?: boolean; // card maior, número maior (destaque)
+  /** Quando passado, o card vira clicável (cursor + hover + border accent). */
+  onClick?: () => void;
 };
 
 export default function KpiCard({
@@ -14,6 +16,7 @@ export default function KpiCard({
   accent = "ink",
   loading = false,
   featured = false,
+  onClick,
 }: Props) {
   const accentColor =
     accent === "orange"
@@ -38,9 +41,20 @@ export default function KpiCard({
     ? "text-[clamp(1.5rem,2.4cqw,2rem)]"
     : "text-[clamp(1.5rem,5cqw,2.125rem)]";
 
+  const interactive = !!onClick && !loading;
+  const interactiveClasses = interactive
+    ? "cursor-pointer hover:border-psa-orange/40 hover:bg-psa-canvas/40 text-left w-full"
+    : "";
+
+  const Wrapper: "button" | "div" = interactive ? "button" : "div";
+  const wrapperProps = interactive
+    ? { onClick, type: "button" as const, "aria-label": `Ver detalhes de ${label}` }
+    : {};
+
   return (
-    <div
-      className={`group rounded-2xl bg-psa-surface border border-psa-line ${padding} shadow-card hover:shadow-card-hover transition-shadow min-w-0 overflow-hidden`}
+    <Wrapper
+      {...wrapperProps}
+      className={`group rounded-2xl bg-psa-surface border border-psa-line ${padding} shadow-card hover:shadow-card-hover transition-all min-w-0 overflow-hidden ${interactiveClasses}`}
       style={{ containerType: "inline-size" }}
     >
       <div className="flex items-center gap-2">
@@ -67,6 +81,6 @@ export default function KpiCard({
           {loading ? <span className="skeleton h-3 w-32 inline-block" /> : hint}
         </div>
       )}
-    </div>
+    </Wrapper>
   );
 }

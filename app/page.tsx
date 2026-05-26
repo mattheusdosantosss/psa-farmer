@@ -71,10 +71,14 @@ export default function Page() {
   const [accessKey, setAccessKey] = useState<string>("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FarmerFilter>("todos");
-  const [modal, setModal] = useState<{
-    farmer: FarmerRow;
-    kind: ModalKind;
-  } | null>(null);
+  // Modal pode estar em dois modos:
+  //  - { mode: "single", farmer, kind }  → drill-down de UM farmer (click na linha)
+  //  - { mode: "aggregated", kind, title } → drill-down do CARD do topo (todos farmers do view)
+  const [modal, setModal] = useState<
+    | { mode: "single"; farmer: FarmerRow; kind: ModalKind }
+    | { mode: "aggregated"; kind: ModalKind; title: string }
+    | null
+  >(null);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -335,6 +339,26 @@ export default function Page() {
           accent="orange"
           hint="Negócio fechado e contrato assinado"
           loading={loading}
+          onClick={
+            view && view.ganhos > 0
+              ? () => {
+                  // Título descritivo segundo o escopo (Geral ou Squad X)
+                  const scopeLabel =
+                    tab === "all"
+                      ? "Geral"
+                      : tab === "dani"
+                      ? "Squad Dani"
+                      : tab === "katyeli"
+                      ? "Squad Katyeli"
+                      : "Squad Leticia";
+                  setModal({
+                    mode: "aggregated",
+                    kind: "ganhos",
+                    title: `Todos os ganhos · ${scopeLabel}`,
+                  });
+                }
+              : undefined
+          }
         />
         <KpiCard
           label="Sem ganhos"
@@ -392,7 +416,7 @@ export default function Page() {
         <FarmerTable
           rows={filteredFarmers}
           loading={loading}
-          onDrillDown={(farmer, kind) => setModal({ farmer, kind })}
+          onDrillDown={(farmer, kind) => setModal({ mode: "single", farmer, kind })}
         />
       </section>
 
@@ -403,19 +427,25 @@ export default function Page() {
           rows={view.farmers}
           loading={loading}
           onDrillDownTramite={(farmer) =>
-            setModal({ farmer, kind: "tramite" })
+            setModal({ mode: "single", farmer, kind: "tramite" })
           }
         />
       )}
 
-      {/* Modal de drill-down (clique em números) */}
+      {/* Modal de drill-down (clique em números OU em cards do topo) */}
       <DealsModal
         open={modal !== null}
         onClose={() => setModal(null)}
-        farmerName={modal?.farmer.nome ?? ""}
+        farmerName={
+          modal?.mode === "single"
+            ? modal.farmer.nome
+            : modal?.mode === "aggregated"
+            ? modal.title
+            : ""
+        }
         kind={modal?.kind ?? "ganhos"}
         deals={
-          modal
+          modal?.mode === "single"
             ? modal.kind === "ganhos"
               ? modal.farmer.dealsGanhos
               : modal.kind === "perdidos"
@@ -425,7 +455,18 @@ export default function Page() {
               : undefined
             : undefined
         }
-        tickets={modal?.kind === "tramite" ? modal.farmer.ticketsEmTramite : undefined}
+        aggregatedDeals={
+          modal?.mode === "aggregated" && modal.kind === "ganhos" && view
+            ? view.farmers.flatMap((f) =>
+                f.dealsGanhos.map((d) => ({ ...d, ownerName: f.nome }))
+              )
+            : undefined
+        }
+        tickets={
+          modal?.mode === "single" && modal.kind === "tramite"
+            ? modal.farmer.ticketsEmTramite
+            : undefined
+        }
       />
     </main>
   );

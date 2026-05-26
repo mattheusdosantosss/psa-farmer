@@ -3,6 +3,13 @@
 import { useEffect } from "react";
 import type { DealLite, TicketLite } from "@/lib/aggregate";
 
+/**
+ * Item do modal quando estiver em modo "agregado" (clique no card do topo).
+ * Reusa o DealLite e adiciona o nome do farmer responsável pra mostrar
+ * na lateral de cada linha.
+ */
+export type AggregatedDealItem = DealLite & { ownerName: string };
+
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -18,10 +25,14 @@ export type ModalKind = "ganhos" | "perdidos" | "aberto" | "tramite";
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** Nome do farmer (modo individual) OU título livre (modo agregado, ex.: "Todos os ganhos · Squad Dani") */
   farmerName: string;
   kind: ModalKind;
-  deals?: DealLite[];   // pra ganhos/perdidos/aberto
-  tickets?: TicketLite[]; // pra tramite
+  /** Modo individual: deals do farmer */
+  deals?: DealLite[];
+  /** Modo agregado: deals de TODOS os farmers do escopo atual, com ownerName por linha */
+  aggregatedDeals?: AggregatedDealItem[];
+  tickets?: TicketLite[];
 };
 
 const TITLES: Record<ModalKind, { titulo: string; itemSing: string; itemPlural: string }> = {
@@ -37,6 +48,7 @@ export default function DealsModal({
   farmerName,
   kind,
   deals,
+  aggregatedDeals,
   tickets,
 }: Props) {
   // Fecha com ESC
@@ -62,13 +74,18 @@ export default function DealsModal({
   if (!open) return null;
 
   const isTickets = kind === "tramite";
-  const items = isTickets ? tickets ?? [] : deals ?? [];
+  const isAggregated = !!aggregatedDeals;
+
+  // Em modo agregado, items vêm de aggregatedDeals.
+  // Em modo individual, items vêm de deals (ou tickets pra tramite).
+  const dealsToRender = isAggregated ? aggregatedDeals : deals;
+  const items = isTickets ? tickets ?? [] : dealsToRender ?? [];
   const total = items.length;
   const labels = TITLES[kind];
 
   // KPIs do header (só pra ganhos: ganhos/receita/ticket médio)
   const isGanhos = kind === "ganhos";
-  const receitaTotal = isGanhos ? (deals ?? []).reduce((s, d) => s + d.amount, 0) : 0;
+  const receitaTotal = isGanhos ? (dealsToRender ?? []).reduce((s, d) => s + d.amount, 0) : 0;
   const ticketMedio = isGanhos && total > 0 ? receitaTotal / total : 0;
 
   return (
@@ -165,27 +182,37 @@ export default function DealsModal({
                       </div>
                     </li>
                   ))
-                : (deals ?? []).map((d, i) => (
-                    <li
-                      key={d.id}
-                      className="px-6 py-3 flex items-center gap-4 hover:bg-white/[0.03] transition-colors"
-                    >
-                      <span className="text-xs font-mono text-white/40 tabular-nums w-8">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 min-w-0 text-sm text-white/90 truncate">
-                        {d.dealname}
-                      </div>
-                      {isGanhos && (
-                        <div className="text-xs font-medium text-psa-orange tabular-nums whitespace-nowrap">
-                          {brl(d.amount)}
+                : (dealsToRender ?? []).map((d, i) => {
+                    const ownerName = isAggregated
+                      ? (d as AggregatedDealItem).ownerName
+                      : null;
+                    return (
+                      <li
+                        key={d.id}
+                        className="px-6 py-3 flex items-center gap-4 hover:bg-white/[0.03] transition-colors"
+                      >
+                        <span className="text-xs font-mono text-white/40 tabular-nums w-8">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-white/90 truncate">{d.dealname}</div>
+                          {ownerName && (
+                            <div className="mt-0.5 text-[11px] text-white/50 truncate">
+                              {ownerName}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="text-xs text-white/60 tabular-nums whitespace-nowrap w-16 text-right">
-                        {fmtDate(isGanhos ? d.closedate : d.createdate)}
-                      </div>
-                    </li>
-                  ))}
+                        {isGanhos && (
+                          <div className="text-xs font-medium text-psa-orange tabular-nums whitespace-nowrap">
+                            {brl(d.amount)}
+                          </div>
+                        )}
+                        <div className="text-xs text-white/60 tabular-nums whitespace-nowrap w-16 text-right">
+                          {fmtDate(isGanhos ? d.closedate : d.createdate)}
+                        </div>
+                      </li>
+                    );
+                  })}
             </ol>
           )}
         </div>
