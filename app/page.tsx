@@ -7,9 +7,9 @@ import FarmersToolbar, { type FarmerFilter } from "@/components/FarmersToolbar";
 import CsTramSection from "@/components/CsTramSection";
 import DealsModal, { type ModalKind } from "@/components/DealsModal";
 import PeriodFilter from "@/components/PeriodFilter";
-import type { TabValue } from "@/components/TabsBar";
 import { computePeriod, type PeriodValue } from "@/lib/periods";
 import type { DashboardData, FarmerRow } from "@/lib/aggregate";
+import type { TabValue } from "@/lib/teams";
 
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

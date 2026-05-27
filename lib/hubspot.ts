@@ -333,12 +333,6 @@ export function fetchDealsByClose(opts: {
   });
 }
 
-/**
- * @deprecated Mantido por compat retro. Use fetchDealsByQualification
- * ou fetchDealsByClose conforme a métrica.
- */
-export const fetchDealsForDashboard = fetchDealsByQualification;
-
 // ============================================================
 // Tickets (pipeline CS)
 // ============================================================

@@ -46,22 +46,6 @@ function parseOverride(raw: unknown): FarmerOverride | null {
 }
 
 /**
- * Lê o override de um único farmer. Retorna null se nunca foi setado
- * ou se o KV falhar.
- */
-export async function getOverride(
-  ownerId: string
-): Promise<FarmerOverride | null> {
-  try {
-    const value = await kv.get(buildKey(ownerId));
-    return parseOverride(value);
-  } catch (err) {
-    console.warn("[farmer-overrides-store] falha ao ler", ownerId, err);
-    return null;
-  }
-}
-
-/**
  * Grava o override de um farmer.
  */
 export async function setOverride(

@@ -10,6 +10,12 @@
 
 export type SquadId = "dani" | "katyeli" | "leticia";
 
+/**
+ * Valor de aba do dashboard: "all" (visão geral) ou uma squad específica.
+ * Vive aqui porque está intrinsicamente ligado a SquadId.
+ */
+export type TabValue = "all" | SquadId;
+
 export type Squad = {
   id: SquadId;
   label: string;
@@ -72,10 +78,6 @@ export const EMAIL_TO_SQUAD: Map<string, SquadId> = new Map(
 
 export function normalizeEmail(email?: string | null): string {
   return (email || "").trim().toLowerCase();
-}
-
-export function isFarmer(email?: string | null): boolean {
-  return ALL_FARMER_EMAILS.has(normalizeEmail(email));
 }
 
 export function squadOf(email?: string | null): SquadId | null {
