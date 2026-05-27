@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ConfirmModal from "./ConfirmModal";
 
 type SquadId = "dani" | "katyeli" | "leticia";
 
@@ -91,6 +92,9 @@ export default function FarmerManager({ accessKey }: Props) {
 
   // filtro
   const [filterSquad, setFilterSquad] = useState<FilterSquad>("todos");
+
+  // modal de confirmação de remoção
+  const [removeTarget, setRemoveTarget] = useState<FarmerOverrideRow | null>(null);
 
   const setRow = (ownerId: string, s: SaveState) =>
     setRowState((prev) => {
@@ -181,40 +185,48 @@ export default function FarmerManager({ accessKey }: Props) {
   };
 
   /**
-   * Comportamento do "Remover":
-   * - Adicionado (sem baseSquadId): apaga o override → some do dashboard (com confirm)
-   * - Base com override: apaga o override → volta squad/visibilidade do código
-   * - Base puro: vira atalho pra ocultar (com confirm)
+   * "Remover" — abre o modal de confirmação. Quem executa de verdade é
+   * `confirmRemove` (chamado pelo modal). Independente do tipo de farmer,
+   * o resultado é o mesmo: sai da listagem visível do dashboard.
    */
-  const removeFarmer = async (farmer: FarmerOverrideRow) => {
+  const requestRemove = (farmer: FarmerOverrideRow) => {
+    setRemoveTarget(farmer);
+  };
+
+  /**
+   * Executa a remoção do farmer da listagem visível.
+   *
+   * - Adicionado (sem baseSquadId): DELETE override → some completamente
+   * - Base (com ou sem override): garante hidden=true via POST → sai da lista
+   *   padrão. Pode ser retomado clicando "Mostrar ocultos" → "Mostrar".
+   */
+  const confirmRemove = async () => {
+    const farmer = removeTarget;
+    if (!farmer) return;
     const isAdded = !farmer.baseSquadId;
-    const isBasePure = !isAdded && farmer.source === "base";
 
-    if (isAdded) {
-      if (
-        !window.confirm(
-          `Remover "${farmer.nome}" do dashboard?\n\nEle foi adicionado pelo admin e não está na lista base. Após remover, ele só volta se for adicionado novamente.`
-        )
-      ) return;
-    } else if (isBasePure) {
-      if (
-        !window.confirm(
-          `Ocultar "${farmer.nome}" do dashboard?\n\nEle faz parte da lista base do sistema e não pode ser apagado, mas ficará oculto. Você pode reativá-lo a qualquer momento clicando em "Mostrar".`
-        )
-      ) return;
-      await toggleHidden(farmer);
-      return;
-    }
-
+    setRemoveTarget(null); // fecha o modal imediatamente
     setRow(farmer.ownerId, "saving");
+
     try {
-      const res = await fetch(
-        `/api/admin/farmer-overrides${qs ? qs + "&" : "?"}ownerId=${encodeURIComponent(farmer.ownerId)}`,
-        { method: "DELETE" }
-      );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-      await load();
+      if (isAdded) {
+        const res = await fetch(
+          `/api/admin/farmer-overrides${qs ? qs + "&" : "?"}ownerId=${encodeURIComponent(farmer.ownerId)}`,
+          { method: "DELETE" }
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+        await load();
+      } else {
+        // base: força hidden=true (cria override se necessário)
+        if (farmer.hidden) {
+          // já está oculto — nada a fazer, mas reload pra refletir UI
+          setRow(farmer.ownerId, "saved");
+          setTimeout(() => setRow(farmer.ownerId, "idle"), 1500);
+          return;
+        }
+        await postOverride(farmer, { hidden: true });
+      }
     } catch (e) {
       setRow(farmer.ownerId, "error");
       console.error(e);
@@ -564,18 +576,12 @@ export default function FarmerManager({ accessKey }: Props) {
                           {f.hidden ? "Mostrar" : "Ocultar"}
                         </button>
                         <button
-                          onClick={() => removeFarmer(f)}
+                          onClick={() => requestRemove(f)}
                           disabled={state === "saving"}
                           className="px-2.5 py-1.5 rounded-lg border border-red-200 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
-                          title={
-                            isAdded
-                              ? "Remover do sistema (foi adicionado pelo admin)"
-                              : f.source === "override"
-                              ? "Resetar para o estado original do código"
-                              : "Ocultar do dashboard (faz parte da lista base, não pode ser apagado)"
-                          }
+                          title="Remover da listagem do dashboard"
                         >
-                          {isAdded ? "Remover" : f.source === "override" ? "Resetar" : "Remover"}
+                          Remover
                         </button>
                       </div>
                     </td>
@@ -586,6 +592,23 @@ export default function FarmerManager({ accessKey }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Modal de confirmação de remoção */}
+      <ConfirmModal
+        open={removeTarget !== null}
+        title="Remover farmer da listagem?"
+        message={
+          removeTarget
+            ? !removeTarget.baseSquadId
+              ? `"${removeTarget.nome}" foi adicionado pelo admin e será removido completamente do sistema. Pra trazê-lo de volta, será preciso adicioná-lo novamente.`
+              : `"${removeTarget.nome}" sairá da listagem padrão do dashboard. Você pode trazê-lo de volta a qualquer momento clicando em "Mostrar ocultos" → "Mostrar".`
+            : ""
+        }
+        confirmLabel="Sim, remover"
+        cancelLabel="Cancelar"
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }
