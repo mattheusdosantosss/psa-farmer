@@ -70,7 +70,7 @@ export type FarmerRow = {
 };
 
 /**
- * Deal ganho mas SEM o campo `valor_total_do_contrato__bruto____ganho_`
+ * Deal ganho mas SEM o campo `valor_total_do_contrato__bruto___ganho_`
  * preenchido. É uma anomalia de cadastro — o dash mostra um aviso pra Pri
  * conferir com o farmer responsável.
  */
@@ -142,7 +142,7 @@ export type DashboardData = {
  * Extrai o valor monetário de um deal conforme o modo (líquido/bruto).
  *
  * - Líquido: campo `amount` (valor padrão do HubSpot).
- * - Bruto:   campo custom `valor_total_do_contrato__bruto____ganho_`,
+ * - Bruto:   campo custom `valor_total_do_contrato__bruto___ganho_`,
  *            que SÓ é preenchido em deals dados como ganho.
  *
  * Quando o bruto está vazio (deal em aberto/perdido ou ganho sem o
@@ -152,7 +152,7 @@ export type DashboardData = {
  */
 function parseAmount(deal: Deal, mode: RevenueMode): number {
   const raw = mode === "bruto"
-    ? deal.properties.valor_total_do_contrato__bruto____ganho_
+    ? deal.properties.valor_total_do_contrato__bruto___ganho_
     : deal.properties.amount;
   const n = raw ? Number(raw) : 0;
   return Number.isFinite(n) ? n : 0;
@@ -167,7 +167,7 @@ function parseAmountLiquido(deal: Deal): number {
 
 /** True se o deal tem o campo bruto preenchido com um número válido. */
 function hasBrutoPreenchido(deal: Deal): boolean {
-  const raw = deal.properties.valor_total_do_contrato__bruto____ganho_;
+  const raw = deal.properties.valor_total_do_contrato__bruto___ganho_;
   if (raw == null || raw === "") return false;
   const n = Number(raw);
   return Number.isFinite(n);

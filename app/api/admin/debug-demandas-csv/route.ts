@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
     const rows = dealsQualificados.map((d) => {
       const p = d.properties;
-      const bruto = p.valor_total_do_contrato__bruto____ganho_;
+      const bruto = p.valor_total_do_contrato__bruto___ganho_;
       return [
         csvEscape(d.id),
         csvEscape(p.dealname),

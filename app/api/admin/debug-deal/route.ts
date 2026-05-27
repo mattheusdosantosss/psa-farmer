@@ -24,7 +24,7 @@ const PROPS_QUE_QUEREMOS = [
   "sdrfarmer_responsavel",
   "pipedrive___data_de_qualificacao",
   "origem_do_lead",
-  "valor_total_do_contrato__bruto____ganho_",
+  "valor_total_do_contrato__bruto___ganho_",
 ];
 
 export async function GET(req: NextRequest) {
@@ -81,9 +81,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       dealId,
       propsSolicitadas: PROPS_QUE_QUEREMOS,
-      campoBrutoEsperado: "valor_total_do_contrato__bruto____ganho_",
+      campoBrutoEsperado: "valor_total_do_contrato__bruto___ganho_",
       valorBrutoRecebido:
-        dealComProps.properties?.valor_total_do_contrato__bruto____ganho_ ?? "UNDEFINED",
+        dealComProps.properties?.valor_total_do_contrato__bruto___ganho_ ?? "UNDEFINED",
       respostaComPropsFiltradas: dealComProps,
       respostaSemFiltroPropsCompleta: dealSemProps,
     });
