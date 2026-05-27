@@ -3,8 +3,9 @@
 /**
  * FarmerManager — gestão completa de farmers em uma única tabela.
  *
- * Cada linha mostra: farmer + email, squad (select), data de início (input),
- * status (Ativo/Oculto/Adicionado) e ações (Ocultar/Mostrar + Remover/Resetar).
+ * Cada linha mostra: farmer + email, squad (select), data de início (input)
+ * e ação Remover. A remoção é binária — clicou em remover, some da listagem.
+ * Pra trazer de volta, basta usar "Adicionar farmer".
  *
  * Filtro de squad no topo (chips). "Adicionar farmer" em um card acima.
  * Visual espelha o card "Detalhe por farmer" do dash (cabeçalho preto,
@@ -79,7 +80,6 @@ export default function FarmerManager({ accessKey }: Props) {
   const [startDates, setStartDates] = useState<Map<string, string | null>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showHidden, setShowHidden] = useState(false);
 
   // edição de data de início (mapa por ownerId)
   const [dateEdits, setDateEdits] = useState<Map<string, string>>(new Map());
@@ -178,7 +178,6 @@ export default function FarmerManager({ accessKey }: Props) {
     }
   };
 
-  const toggleHidden = (f: FarmerOverrideRow) => postOverride(f, { hidden: !f.hidden });
   const moveSquad = (f: FarmerOverrideRow, newSquad: SquadId) => {
     if (newSquad === f.squadId) return;
     postOverride(f, { squadId: newSquad });
@@ -194,11 +193,14 @@ export default function FarmerManager({ accessKey }: Props) {
   };
 
   /**
-   * Executa a remoção do farmer da listagem visível.
+   * Executa a remoção do farmer da listagem.
    *
-   * - Adicionado (sem baseSquadId): DELETE override → some completamente
-   * - Base (com ou sem override): garante hidden=true via POST → sai da lista
-   *   padrão. Pode ser retomado clicando "Mostrar ocultos" → "Mostrar".
+   * - Adicionado (sem baseSquadId): DELETE override → some do KV
+   * - Base (do código): força hidden=true via POST → sai da listagem do dash
+   *
+   * Em ambos os casos o resultado pro usuário é o mesmo: some da lista
+   * visível e do dashboard. Pra trazer de volta, usa "Adicionar farmer"
+   * normalmente — a re-adição cria/atualiza o override com hidden=false.
    */
   const confirmRemove = async () => {
     const farmer = removeTarget;
@@ -218,14 +220,9 @@ export default function FarmerManager({ accessKey }: Props) {
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         await load();
       } else {
-        // base: força hidden=true (cria override se necessário)
-        if (farmer.hidden) {
-          // já está oculto — nada a fazer, mas reload pra refletir UI
-          setRow(farmer.ownerId, "saved");
-          setTimeout(() => setRow(farmer.ownerId, "idle"), 1500);
-          return;
-        }
+        // base do código: marca hidden=true pra sumir da listagem
         await postOverride(farmer, { hidden: true });
+        await load();
       }
     } catch (e) {
       setRow(farmer.ownerId, "error");
@@ -295,9 +292,10 @@ export default function FarmerManager({ accessKey }: Props) {
     }
   };
 
-  // Combina overrides + datas pra montar as linhas
+  // Combina overrides + datas pra montar as linhas. Filtra ocultos
+  // sempre — o conceito de "oculto" sumiu da UI; removidos somem.
   const rows: CombinedRow[] = useMemo(() => {
-    const visible = showHidden ? current : current.filter((f) => !f.hidden);
+    const visible = current.filter((f) => !f.hidden);
     const arr = visible.map((f) => ({
       ...f,
       startDate: startDates.get(f.ownerId) ?? null,
@@ -311,13 +309,12 @@ export default function FarmerManager({ accessKey }: Props) {
       return a.nome.localeCompare(b.nome, "pt-BR");
     });
     return arr;
-  }, [current, startDates, showHidden]);
+  }, [current, startDates]);
 
   const filteredRows = filterSquad === "todos"
     ? rows
     : rows.filter((r) => r.squadId === filterSquad);
 
-  const hiddenCount = current.filter((f) => f.hidden).length;
   const countsBySquad = useMemo(() => {
     const c: Record<FilterSquad, number> = { todos: rows.length, dani: 0, katyeli: 0, leticia: 0 };
     for (const r of rows) c[r.squadId] += 1;
@@ -413,8 +410,8 @@ export default function FarmerManager({ accessKey }: Props) {
         )}
       </section>
 
-      {/* Filtro por squad + toggle ocultos */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Filtro por squad */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
           {(["todos", ...SQUAD_IDS] as FilterSquad[]).map((id) => {
             const active = filterSquad === id;
@@ -439,15 +436,6 @@ export default function FarmerManager({ accessKey }: Props) {
             );
           })}
         </div>
-
-        {hiddenCount > 0 && (
-          <button
-            onClick={() => setShowHidden((v) => !v)}
-            className="text-xs font-semibold text-psa-blue hover:underline"
-          >
-            {showHidden ? `Esconder ${hiddenCount} ocultos` : `Mostrar ${hiddenCount} ocultos`}
-          </button>
-        )}
       </div>
 
       {/* Tabela única — espelha o "Detalhe por farmer" do dash */}
@@ -481,20 +469,13 @@ export default function FarmerManager({ accessKey }: Props) {
                 return (
                   <tr
                     key={f.ownerId}
-                    className={`border-t border-psa-line hover:bg-psa-canvas transition-colors ${
-                      f.hidden ? "opacity-60" : ""
-                    }`}
+                    className="border-t border-psa-line hover:bg-psa-canvas transition-colors"
                   >
                     {/* Farmer + badges */}
                     <td className="p-3 align-top">
                       <div className="min-w-[200px]">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-psa-ink">{f.nome}</span>
-                          {f.hidden && (
-                            <span className="text-[9px] uppercase tracking-wider font-bold bg-psa-canvas text-psa-ink-soft px-1.5 py-0.5 rounded">
-                              Oculto
-                            </span>
-                          )}
                           {moved && (
                             <span
                               className="text-[9px] italic text-psa-ink-soft"
@@ -562,14 +543,6 @@ export default function FarmerManager({ accessKey }: Props) {
                           <span className="text-[10px] text-red-600 font-semibold mr-1">Erro</span>
                         )}
                         <button
-                          onClick={() => toggleHidden(f)}
-                          disabled={state === "saving"}
-                          className="px-2.5 py-1.5 rounded-lg border border-psa-line text-[11px] font-semibold text-psa-ink-soft hover:bg-psa-canvas transition-colors"
-                          title={f.hidden ? "Voltar a mostrar no dashboard" : "Ocultar do dashboard"}
-                        >
-                          {f.hidden ? "Mostrar" : "Ocultar"}
-                        </button>
-                        <button
                           onClick={() => requestRemove(f)}
                           disabled={state === "saving"}
                           className="px-2.5 py-1.5 rounded-lg border border-red-200 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
@@ -590,12 +563,10 @@ export default function FarmerManager({ accessKey }: Props) {
       {/* Modal de confirmação de remoção */}
       <ConfirmModal
         open={removeTarget !== null}
-        title="Remover farmer da listagem?"
+        title="Tem certeza que deseja remover o usuário da listagem?"
         message={
           removeTarget
-            ? !removeTarget.baseSquadId
-              ? `"${removeTarget.nome}" foi adicionado pelo admin e será removido completamente do sistema. Pra trazê-lo de volta, será preciso adicioná-lo novamente.`
-              : `"${removeTarget.nome}" sairá da listagem padrão do dashboard. Você pode trazê-lo de volta a qualquer momento clicando em "Mostrar ocultos" → "Mostrar".`
+            ? `"${removeTarget.nome}" sairá da listagem e deixará de aparecer no dashboard. Pra trazê-lo de volta, basta usar "Adicionar farmer" novamente.`
             : ""
         }
         confirmLabel="Sim, remover"
