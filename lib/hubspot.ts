@@ -185,6 +185,19 @@ const DEAL_PROPS = [
 // - "Curador": leads vindos do time de curadoria (rótulo "Curador")
 const FARMER_LEAD_ORIGINS = ["Carteira do Farmer", "Curador"];
 
+// ----- Helpers de timezone (Brasília = UTC-3, sem DST desde 2019) -----
+// A UI manda datas como "YYYY-MM-DD" representando dias-calendário em BRT.
+// new Date("YYYY-MM-DD") interpreta como UTC 00:00, que em BRT vira 21:00
+// do dia anterior — pega ou perde 3h de deals no recorte. Estes helpers
+// convertem corretamente pra timestamps que casam com BRT 00:00 e 23:59:59.
+const BR_OFFSET_MS = 3 * 60 * 60 * 1000; // +3h em ms
+
+const brStartOfDayMs = (yyyymmdd: string): number =>
+  new Date(yyyymmdd).getTime() + BR_OFFSET_MS;
+
+const brEndOfDayMs = (yyyymmdd: string): number =>
+  new Date(yyyymmdd).getTime() + BR_OFFSET_MS + 86_400_000 - 1;
+
 // Campos de data possíveis pra recortar o período
 type DealDateField =
   | "pipedrive___data_de_qualificacao"
@@ -232,17 +245,24 @@ async function fetchDealsByDateField(opts: {
   }
 
   if (from) {
+    // from "YYYY-MM-DD" representa o início do dia em horário de BRASÍLIA.
+    // Sem fuso explícito, new Date("YYYY-MM-DD") cai em UTC 00:00, que
+    // em BRT (UTC-3) seria o dia ANTERIOR 21:00 — pegando 3h de deals
+    // do dia errado. Compensamos somando +3h pra alinhar com BRT 00:00.
     filters.push({
       propertyName: dateField,
       operator: "GTE",
-      value: new Date(from).getTime().toString(),
+      value: brStartOfDayMs(from).toString(),
     });
   }
   if (to) {
+    // to "YYYY-MM-DD" representa o FIM do dia (inclusive) em BRT.
+    // Sem isso, "LTE 2026-05-26" pararia em BRT 21:00 e perderíamos
+    // tudo qualificado nas últimas 3 horas do dia atual.
     filters.push({
       propertyName: dateField,
       operator: "LTE",
-      value: new Date(to).getTime().toString(),
+      value: brEndOfDayMs(to).toString(),
     });
   }
 
