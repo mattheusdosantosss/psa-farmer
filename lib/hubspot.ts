@@ -429,13 +429,13 @@ export async function getCsStages(): Promise<CsStagesResolved> {
 /**
  * Tickets na pipeline CS para o dashboard de tramitação.
  *
- * Estratégia por categoria:
- * - ABERTOS: traz todos os tickets em trâmite agora, sem filtro de data.
+ * Semântica híbrida (acertada com o usuário):
+ * - DEMANDAS / EM TRÂMITE / CANCELADOS: filtra por `createdate` no período.
+ *   "Em trâmite" = criados no período E ainda abertos hoje.
  * - CONCLUÍDOS: filtra por quando o ticket ENTROU no estágio "Concluído"
  *   via `hs_v2_date_entered_<stageId>` (1 filterGroup por estágio).
- *   Antes era por `createdate`, o que tirava da contagem tickets criados
- *   antes do período mas concluídos dentro dele.
- * - CANCELADOS: por enquanto continua filtrando por `createdate`.
+ *   Isso é proposital — mede entrega no período, independente de quando o
+ *   ticket foi criado.
  *
  * Outros estágios fechados (Aprovação, Stand by) ficam fora — não pesam
  * nas métricas.
@@ -468,17 +468,30 @@ export async function fetchCsTickets(opts?: {
       }
     : { propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" };
 
-  // Grupo ABERTOS: tudo em trâmite hoje (sem filtro de data)
-  const grupoAbertos =
-    stages.abertos.length > 0
-      ? [{
-          filters: [
-            { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
-            { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.abertos },
-            ownerFilter,
-          ],
-        }]
-      : [];
+  // Grupo ABERTOS: tickets criados no período E ainda em estágio aberto hoje.
+  const grupoAbertos: Array<{ filters: Array<Record<string, unknown>> }> = [];
+  if (stages.abertos.length > 0) {
+    const filters: Array<Record<string, unknown>> = [
+      { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+      { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.abertos },
+      ownerFilter,
+    ];
+    if (opts?.from) {
+      filters.push({
+        propertyName: "createdate",
+        operator: "GTE",
+        value: new Date(opts.from).getTime().toString(),
+      });
+    }
+    if (opts?.to) {
+      filters.push({
+        propertyName: "createdate",
+        operator: "LTE",
+        value: new Date(opts.to).getTime().toString(),
+      });
+    }
+    grupoAbertos.push({ filters });
+  }
 
   // Grupos CONCLUÍDOS: 1 por stageId, filtrando por entrada no estágio.
   // O nome interno da propriedade é hs_v2_date_entered_<stageId> — o HubSpot
