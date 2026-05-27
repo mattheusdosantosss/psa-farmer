@@ -10,6 +10,7 @@ import { aggregate, RevenueMode } from "@/lib/aggregate";
 import { ALL_FARMER_EMAILS, resolveFarmers } from "@/lib/teams";
 import { getAllStartDates } from "@/lib/farmer-dates-store";
 import { getAllOverrides } from "@/lib/farmer-overrides-store";
+import { getAllAssignments, getAllTags } from "@/lib/farmer-tags-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,10 +86,14 @@ export async function GET(req: NextRequest) {
       ? await getCsStages()
       : { abertos: [], concluidos: [], cancelados: [] };
 
-    // Datas de início dos farmers (do Vercel KV). Se KV indisponível,
-    // getAllStartDates retorna Map vazio e o dashboard segue sem a
-    // coluna "Tempo" — degrada com elegância.
-    const startDates = await getAllStartDates();
+    // Datas de início + tags em paralelo (todos do Vercel KV).
+    // Se KV indisponível, cada uma retorna vazio e o dashboard degrada
+    // com elegância (sem coluna Tempo, sem chips de tag).
+    const [startDates, tagVocabulary, tagAssignments] = await Promise.all([
+      getAllStartDates(),
+      getAllTags(),
+      getAllAssignments(),
+    ]);
 
     const data = aggregate({
       dealsQualificados,
@@ -102,6 +107,8 @@ export async function GET(req: NextRequest) {
       csStages,
       startDates,
       squadByOwnerId,
+      tagAssignments,
+      tagVocabulary,
     });
 
     return NextResponse.json(data);

@@ -26,6 +26,25 @@ const formatBR = (iso: string) => {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 };
 
+/**
+ * Escolhe preto ou branco como texto pra dar contraste sobre uma cor
+ * de fundo arbitrária. Usa a fórmula YIQ (luma percebido): cores claras
+ * → texto preto, cores escuras → texto branco.
+ *
+ * Aceita "#RGB", "#RRGGBB" ou "#RRGGBBAA". Inválido cai em branco.
+ */
+function pickReadableTextColor(hex: string): "#000" | "#fff" {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6 && h.length !== 8) return "#fff";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return "#fff";
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 140 ? "#000" : "#fff";
+}
+
 type Props = {
   rows: FarmerRow[];
   loading?: boolean;
@@ -139,10 +158,24 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                   </div>
                 </td>
 
-                {/* Farmer + badge */}
+                {/* Farmer + tag (opcional) + badge ativo/arquivado */}
                 <td className="p-3">
                   <div className="min-w-[180px]">
-                    <div className="font-medium text-psa-ink truncate">{f.nome}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-psa-ink truncate">{f.nome}</span>
+                      {f.tag && (
+                        <span
+                          className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: f.tag.color,
+                            color: pickReadableTextColor(f.tag.color),
+                          }}
+                          title={`Tag: ${f.tag.name}`}
+                        >
+                          {f.tag.name}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span
                         className={`inline-block w-1.5 h-1.5 rounded-full ${

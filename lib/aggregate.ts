@@ -13,6 +13,8 @@ import {
   CsStagesResolved,
 } from "./hubspot";
 import { SQUADS, SquadId, squadOf, normalizeEmail } from "./teams";
+import type { FarmerTag } from "./farmer-tags-store";
+import { normalizeTagName } from "./farmer-tags-store";
 
 export type RevenueMode = "liquido" | "bruto";
 
@@ -38,6 +40,12 @@ export type FarmerRow = {
   nome: string;
   squadId: SquadId | null;
   ativo: boolean;
+  /**
+   * Tag opcional atribuída ao farmer no admin. Vem do KV (farmer-tags).
+   * null se o farmer não tem tag atribuída ou se a tag referenciada foi
+   * apagada do vocabulário antes de desatribuir.
+   */
+  tag: { name: string; color: string } | null;
   /** Data ISO "YYYY-MM-DD" definida no admin (ou null se nunca foi definida) */
   startDate: string | null;
   /** Dias desde startDate (null se startDate não definido) */
@@ -264,11 +272,30 @@ export function aggregate(input: {
   startDates: Map<string, string>;
   /** Override de squad por ownerId (admin). Se ausente, cai em squadOf(email). */
   squadByOwnerId?: Map<string, SquadId>;
+  /** Mapa ownerId → nome da tag atribuída no admin. */
+  tagAssignments?: Map<string, string>;
+  /** Vocabulário global de tags pra resolver nome → cor. */
+  tagVocabulary?: FarmerTag[];
 }): DashboardData {
   const {
     dealsQualificados, dealsFechados, tickets, owners, allowedOwnerIds, missingEmails,
     revenueMode, pipelineCsAtivo, csStages, startDates, squadByOwnerId,
+    tagAssignments, tagVocabulary,
   } = input;
+
+  // Index do vocabulário por nome normalizado pra resolver atribuições.
+  // Se o vocab estiver vazio (ou tag foi apagada antes de desatribuir),
+  // a atribuição vira null silenciosamente.
+  const tagByNormName = new Map<string, FarmerTag>();
+  for (const t of tagVocabulary ?? []) {
+    tagByNormName.set(normalizeTagName(t.name), t);
+  }
+  const resolveTag = (ownerId: string): { name: string; color: string } | null => {
+    const assigned = tagAssignments?.get(ownerId);
+    if (!assigned) return null;
+    const found = tagByNormName.get(normalizeTagName(assigned));
+    return found ? { name: found.name, color: found.color } : null;
+  };
 
   // Inicializa rows com zeros pra todo farmer permitido
   const byFarmer = new Map<string, FarmerRow>();
@@ -281,6 +308,7 @@ export function aggregate(input: {
       nome: ownerDisplayName(owner),
       squadId: squadByOwnerId?.get(ownerId) ?? squadOf(email),
       ativo: !owner?.archived,
+      tag: resolveTag(ownerId),
       startDate: startDates.get(ownerId) ?? null,
       diasAtivos: null,
       score: 0,
