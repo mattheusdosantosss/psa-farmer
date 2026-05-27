@@ -6,7 +6,7 @@
  * Layout enxuto: hero + um único componente FarmerManager que cuida
  * de tudo (squad, ocultar, remover, data de início, adicionar novo).
  *
- * A largura segue o padrão do dash (max-w-6xl) e a tabela usa o mesmo
+ * A largura segue o padrão do dash (max-w-[1600px]) e a tabela usa o mesmo
  * estilo do card "Detalhe por farmer".
  */
 
@@ -22,7 +22,7 @@ export default function AdminFarmersPage() {
   }, []);
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+    <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl bg-psa-ink text-white shadow-card">
         <div
