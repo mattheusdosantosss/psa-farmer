@@ -429,12 +429,16 @@ export async function getCsStages(): Promise<CsStagesResolved> {
 /**
  * Tickets na pipeline CS para o dashboard de tramitação.
  *
- * Estratégia:
- * - Busca TODOS os tickets em estágios relevantes (abertos + concluídos +
- *   cancelados) — outros fechados (Aprovação, Stand by) ficam de fora.
- * - Para "concluídos" e "cancelados", aplica filtro de período via createdate.
- * - Para "abertos" (em trâmite hoje), traz independente da data — quem está
- *   em trâmite agora interessa mesmo que tenha sido criado antes do período.
+ * Estratégia por categoria:
+ * - ABERTOS: traz todos os tickets em trâmite agora, sem filtro de data.
+ * - CONCLUÍDOS: filtra por quando o ticket ENTROU no estágio "Concluído"
+ *   via `hs_v2_date_entered_<stageId>` (1 filterGroup por estágio).
+ *   Antes era por `createdate`, o que tirava da contagem tickets criados
+ *   antes do período mas concluídos dentro dele.
+ * - CANCELADOS: por enquanto continua filtrando por `createdate`.
+ *
+ * Outros estágios fechados (Aprovação, Stand by) ficam fora — não pesam
+ * nas métricas.
  *
  * Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado.
  */
@@ -446,9 +450,12 @@ export async function fetchCsTickets(opts?: {
   if (!PIPELINE_CS) return [];
 
   const stages = await resolveCsStages();
-  const finaisDoPeriodo = [...stages.concluidos, ...stages.cancelados];
 
-  if (stages.abertos.length === 0 && finaisDoPeriodo.length === 0) {
+  if (
+    stages.abertos.length === 0 &&
+    stages.concluidos.length === 0 &&
+    stages.cancelados.length === 0
+  ) {
     console.warn("[hubspot] Pipeline CS sem estágios resolvidos");
     return [];
   }
@@ -461,7 +468,7 @@ export async function fetchCsTickets(opts?: {
       }
     : { propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" };
 
-  // Grupo 1: tickets ABERTOS (todos, sem filtro de data)
+  // Grupo ABERTOS: tudo em trâmite hoje (sem filtro de data)
   const grupoAbertos =
     stages.abertos.length > 0
       ? [{
@@ -473,29 +480,58 @@ export async function fetchCsTickets(opts?: {
         }]
       : [];
 
-  // Grupo 2: tickets CONCLUÍDOS/CANCELADOS criados no período
-  const filtersFinais: Array<Record<string, unknown>> = [
-    { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
-    { propertyName: "hs_pipeline_stage", operator: "IN", values: finaisDoPeriodo },
-    ownerFilter,
-  ];
-  if (opts?.from) {
-    filtersFinais.push({
-      propertyName: "createdate",
-      operator: "GTE",
-      value: new Date(opts.from).getTime().toString(),
-    });
-  }
-  if (opts?.to) {
-    filtersFinais.push({
-      propertyName: "createdate",
-      operator: "LTE",
-      value: new Date(opts.to).getTime().toString(),
-    });
-  }
-  const grupoFinais = finaisDoPeriodo.length > 0 ? [{ filters: filtersFinais }] : [];
+  // Grupos CONCLUÍDOS: 1 por stageId, filtrando por entrada no estágio.
+  // O nome interno da propriedade é hs_v2_date_entered_<stageId> — o HubSpot
+  // mantém uma por estágio com o timestamp de quando o ticket entrou nele.
+  const gruposConcluidos = stages.concluidos.flatMap((stageId) => {
+    const filters: Array<Record<string, unknown>> = [
+      { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+      { propertyName: "hs_pipeline_stage", operator: "EQ", value: stageId },
+      ownerFilter,
+    ];
+    if (opts?.from) {
+      filters.push({
+        propertyName: `hs_v2_date_entered_${stageId}`,
+        operator: "GTE",
+        value: new Date(opts.from).getTime().toString(),
+      });
+    }
+    if (opts?.to) {
+      filters.push({
+        propertyName: `hs_v2_date_entered_${stageId}`,
+        operator: "LTE",
+        value: new Date(opts.to).getTime().toString(),
+      });
+    }
+    return [{ filters }];
+  });
 
-  const filterGroups = [...grupoAbertos, ...grupoFinais];
+  // Grupo CANCELADOS: continua por createdate por enquanto.
+  const grupoCancelados: Array<{ filters: Array<Record<string, unknown>> }> = [];
+  if (stages.cancelados.length > 0) {
+    const filters: Array<Record<string, unknown>> = [
+      { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
+      { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.cancelados },
+      ownerFilter,
+    ];
+    if (opts?.from) {
+      filters.push({
+        propertyName: "createdate",
+        operator: "GTE",
+        value: new Date(opts.from).getTime().toString(),
+      });
+    }
+    if (opts?.to) {
+      filters.push({
+        propertyName: "createdate",
+        operator: "LTE",
+        value: new Date(opts.to).getTime().toString(),
+      });
+    }
+    grupoCancelados.push({ filters });
+  }
+
+  const filterGroups = [...grupoAbertos, ...gruposConcluidos, ...grupoCancelados];
   if (filterGroups.length === 0) return [];
 
   const all: Ticket[] = [];
