@@ -68,6 +68,13 @@ export default function Page() {
   const [period, setPeriod] = useState<PeriodValue>(() => computePeriod("30d"));
   const [mode, setMode] = useState<"bruto" | "liquido">("bruto");
   const [tab, setTab] = useState<TabValue>("all");
+  /**
+   * Sub-aba que decide qual seção é renderizada abaixo do hero.
+   * "negocios" — KPIs de negócios + tabela "Detalhe por farmer"
+   * "tramitacao" — KPIs de CS + tabela "Detalhe da tramitação"
+   * Default em "negocios" porque é a métrica principal do dash.
+   */
+  const [subTab, setSubTab] = useState<"negocios" | "tramitacao">("negocios");
   const [accessKey, setAccessKey] = useState<string>("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FarmerFilter>("todos");
@@ -370,6 +377,37 @@ export default function Page() {
         </div>
       )}
 
+      {/* Sub-abas: Negócios vs Tramitação. Estilo discreto em fundo claro,
+          pra não competir visualmente com as abas principais de squad no hero.
+          Só renderiza se a pipeline CS estiver ativa — caso contrário, não há
+          o que alternar e mantemos só a visão de negócios. */}
+      {data?.meta.pipelineCsAtivo && (
+        <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
+          {([
+            { id: "negocios" as const, label: "Negócios" },
+            { id: "tramitacao" as const, label: "Tramitação" },
+          ]).map((t) => {
+            const active = subTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setSubTab(t.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-psa-ink text-white"
+                    : "text-psa-ink-soft hover:text-psa-ink hover:bg-psa-canvas"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* === SUB-ABA: NEGÓCIOS === */}
+      {subTab === "negocios" && (
+      <>
       {/* KPIs — 5 cards iguais em telas grandes */}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
@@ -465,9 +503,11 @@ export default function Page() {
           onDrillDown={(farmer, kind) => setModal({ mode: "single", farmer, kind })}
         />
       </section>
+      </>
+      )}
 
-      {/* Tramitação CS — só aparece se a pipeline estiver configurada */}
-      {data?.meta.pipelineCsAtivo && view && (
+      {/* === SUB-ABA: TRAMITAÇÃO === */}
+      {subTab === "tramitacao" && data?.meta.pipelineCsAtivo && view && (
         <CsTramSection
           topo={view.topoCs}
           rows={view.farmers}
