@@ -73,10 +73,13 @@ export async function GET(req: NextRequest) {
       "data_qualificacao",
       "createdate",
       "amount",
+      "valor_bruto_ganho",
+      "bruto_eh_undefined",
     ].join(",");
 
     const rows = dealsQualificados.map((d) => {
       const p = d.properties;
+      const bruto = p.valor_total_do_contrato__bruto____ganho_;
       return [
         csvEscape(d.id),
         csvEscape(p.dealname),
@@ -88,6 +91,8 @@ export async function GET(req: NextRequest) {
         csvEscape(p.pipedrive___data_de_qualificacao),
         csvEscape(p.createdate),
         csvEscape(p.amount),
+        csvEscape(bruto),
+        csvEscape(bruto === undefined ? "UNDEFINED" : bruto === null ? "NULL" : bruto === "" ? "EMPTY" : "ok"),
       ].join(",");
     });
 
