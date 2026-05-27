@@ -208,50 +208,84 @@ export default function Page() {
                 <PeriodFilter value={period} onChange={handlePeriodChange} />
               </div>
 
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
-                  Receita
-                </span>
-                <div className="inline-flex rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
-                  <button
-                    onClick={() => setMode("bruto")}
-                    className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
-                      mode === "bruto"
-                        ? "bg-psa-orange text-white shadow-md"
-                        : "text-white/85 hover:text-white"
-                    }`}
-                  >
-                    Bruto
-                  </button>
-                  <button
-                    onClick={() => setMode("liquido")}
-                    className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
-                      mode === "liquido"
-                        ? "bg-psa-orange text-white shadow-md"
-                        : "text-white/85 hover:text-white"
-                    }`}
-                  >
-                    Líquido
-                  </button>
-                </div>
-              </div>
+              {/* Coluna direita: toggle Negócios/Tramitação no topo
+                  (acima do par Receita/Admin), aproveitando o espaço
+                  vazio que sobra porque o card do Período é mais alto. */}
+              <div className="flex flex-col gap-3">
+                {/* Toggle Negócios/Tramitação — só aparece se pipeline CS ativa */}
+                {data?.meta.pipelineCsAtivo && (
+                  <div className="inline-flex self-start rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
+                    <button
+                      onClick={() => setSubTab("negocios")}
+                      className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                        subTab === "negocios"
+                          ? "bg-psa-orange text-white shadow-md"
+                          : "text-white/85 hover:text-white"
+                      }`}
+                    >
+                      Negócios
+                    </button>
+                    <button
+                      onClick={() => setSubTab("tramitacao")}
+                      className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                        subTab === "tramitacao"
+                          ? "bg-psa-orange text-white shadow-md"
+                          : "text-white/85 hover:text-white"
+                      }`}
+                    >
+                      Tramitação
+                    </button>
+                  </div>
+                )}
 
-              {/* Botão Admin (gerenciar farmers e datas) */}
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
-                  Admin
-                </span>
-                <a
-                  href={`/admin/farmers${accessKey ? `?key=${encodeURIComponent(accessKey)}` : ""}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-sm font-semibold text-white/90 hover:bg-white/[0.12] hover:text-white transition-all"
-                  title="Abrir painel administrativo"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                  Gerenciar
-                </a>
+                {/* Linha de baixo: Receita + Admin lado a lado */}
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
+                      Receita
+                    </span>
+                    <div className="inline-flex rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
+                      <button
+                        onClick={() => setMode("bruto")}
+                        className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                          mode === "bruto"
+                            ? "bg-psa-orange text-white shadow-md"
+                            : "text-white/85 hover:text-white"
+                        }`}
+                      >
+                        Bruto
+                      </button>
+                      <button
+                        onClick={() => setMode("liquido")}
+                        className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
+                          mode === "liquido"
+                            ? "bg-psa-orange text-white shadow-md"
+                            : "text-white/85 hover:text-white"
+                        }`}
+                      >
+                        Líquido
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Botão Admin (gerenciar farmers e datas) */}
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
+                      Admin
+                    </span>
+                    <a
+                      href={`/admin/farmers${accessKey ? `?key=${encodeURIComponent(accessKey)}` : ""}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-sm font-semibold text-white/90 hover:bg-white/[0.12] hover:text-white transition-all"
+                      title="Abrir painel administrativo"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                      Gerenciar
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -374,34 +408,6 @@ export default function Page() {
               <li key={e}>{e}</li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {/* Sub-abas: Negócios vs Tramitação. Estilo discreto em fundo claro,
-          pra não competir visualmente com as abas principais de squad no hero.
-          Só renderiza se a pipeline CS estiver ativa — caso contrário, não há
-          o que alternar e mantemos só a visão de negócios. */}
-      {data?.meta.pipelineCsAtivo && (
-        <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
-          {([
-            { id: "negocios" as const, label: "Negócios" },
-            { id: "tramitacao" as const, label: "Tramitação" },
-          ]).map((t) => {
-            const active = subTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setSubTab(t.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  active
-                    ? "bg-psa-ink text-white"
-                    : "text-psa-ink-soft hover:text-psa-ink hover:bg-psa-canvas"
-                }`}
-              >
-                {t.label}
-              </button>
-            );
-          })}
         </div>
       )}
 
