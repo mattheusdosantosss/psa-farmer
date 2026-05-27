@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import FarmerManager from "@/components/FarmerManager";
 
-type AdminTab = "datas" | "gerenciar";
-
 type FarmerRecord = {
   email: string;
   ownerId: string | null;
@@ -44,7 +42,6 @@ export default function AdminFarmersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accessKey, setAccessKey] = useState("");
-  const [tab, setTab] = useState<AdminTab>("datas");
 
   useEffect(() => {
     const k = new URLSearchParams(window.location.search).get("key") || "";
@@ -68,8 +65,8 @@ export default function AdminFarmersPage() {
   }, [accessKey]);
 
   useEffect(() => {
-    if (tab === "datas") load();
-  }, [load, tab]);
+    load();
+  }, [load]);
 
   const setEdit = (ownerId: string, value: string) => {
     setEdits((prev) => {
@@ -160,7 +157,7 @@ export default function AdminFarmersPage() {
   const totalDefinidas = farmers.filter((f) => f.startDate).length;
 
   return (
-    <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+    <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl bg-psa-ink text-white shadow-card">
         <div
@@ -201,7 +198,7 @@ export default function AdminFarmersPage() {
             Gerencie quem aparece no dashboard, em qual squad, e a data de
             início como farmer.
           </p>
-          {tab === "datas" && !loading && farmers.length > 0 && (
+          {!loading && farmers.length > 0 && (
             <div className="mt-4 text-xs text-white/70">
               {totalDefinidas} de {farmers.length} farmers com data definida
             </div>
@@ -209,52 +206,55 @@ export default function AdminFarmersPage() {
         </div>
       </section>
 
-      {/* Abas */}
-      <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
-        {[
-          { id: "datas" as const, label: "Datas de início" },
-          { id: "gerenciar" as const, label: "Gerenciar farmers" },
-        ].map((t) => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                active
-                  ? "bg-psa-ink text-white"
-                  : "text-psa-ink-soft hover:text-psa-ink hover:bg-psa-canvas"
-              }`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Bloco 1: Gerenciar farmers (squad, ocultar, remover, adicionar) */}
+      <section className="space-y-4">
+        <header className="flex items-center gap-3 border-b border-psa-line pb-3">
+          <span className="inline-block w-1 h-6 rounded-sm bg-psa-orange" />
+          <div>
+            <h2 className="font-display text-xl font-bold text-psa-ink leading-tight">
+              Gerenciar farmers
+            </h2>
+            <p className="text-xs text-psa-ink-soft mt-0.5">
+              Adicione, oculte, mude de squad ou remova farmers do dashboard.
+            </p>
+          </div>
+        </header>
+        <FarmerManager accessKey={accessKey} />
+      </section>
 
-      {/* Aba: Gerenciar farmers */}
-      {tab === "gerenciar" && <FarmerManager accessKey={accessKey} />}
+      {/* Bloco 2: Datas de início */}
+      <section className="space-y-4">
+        <header className="flex items-center gap-3 border-b border-psa-line pb-3">
+          <span className="inline-block w-1 h-6 rounded-sm bg-psa-orange" />
+          <div>
+            <h2 className="font-display text-xl font-bold text-psa-ink leading-tight">
+              Datas de início
+            </h2>
+            <p className="text-xs text-psa-ink-soft mt-0.5">
+              Data em que cada farmer começou a operar como farmer. Usada pra
+              calcular dias ativos e demandas por dia.
+            </p>
+          </div>
+        </header>
 
-      {/* Aba: Datas de início — Erro */}
-      {tab === "datas" && error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <div className="font-display font-semibold mb-1">Erro ao carregar</div>
-          <div className="text-red-700">{error}</div>
-          {error.includes("unauthorized") && (
-            <div className="mt-2 text-xs text-red-700">
-              Adicione <code className="px-1 py-0.5 bg-red-100 rounded">?key=SUA_CHAVE</code> à URL.
-            </div>
-          )}
-        </div>
-      )}
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div className="font-display font-semibold mb-1">Erro ao carregar</div>
+            <div className="text-red-700">{error}</div>
+            {error.includes("unauthorized") && (
+              <div className="mt-2 text-xs text-red-700">
+                Adicione <code className="px-1 py-0.5 bg-red-100 rounded">?key=SUA_CHAVE</code> à URL.
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Aba: Datas de início — Lista de farmers */}
-      {tab === "datas" && (loading ? (
-        <div className="rounded-2xl bg-psa-surface border border-psa-line p-8 text-center text-sm text-psa-ink-soft">
-          Carregando…
-        </div>
-      ) : (
-        Array.from(farmersBySquad.entries()).map(([squadKey, list]) => (
+        {loading ? (
+          <div className="rounded-2xl bg-psa-surface border border-psa-line p-8 text-center text-sm text-psa-ink-soft">
+            Carregando…
+          </div>
+        ) : (
+          Array.from(farmersBySquad.entries()).map(([squadKey, list]) => (
           <section key={squadKey}>
             <div className="flex items-center gap-2 mb-3">
               <span className="inline-block w-2 h-2 rounded-sm bg-psa-orange" />
@@ -319,8 +319,9 @@ export default function AdminFarmersPage() {
               })}
             </div>
           </section>
-        ))
-      ))}
+          ))
+        )}
+      </section>
     </main>
   );
 }

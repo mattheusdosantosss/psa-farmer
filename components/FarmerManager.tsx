@@ -144,10 +144,25 @@ export default function FarmerManager({ accessKey }: Props) {
     }
   };
 
-  const resetOverride = async (farmer: CurrentFarmer) => {
-    if (!farmer.baseSquadId) {
-      // farmer SÓ existe via override — confirma com a Pri antes de remover,
-      // porque depois ele some completamente do dashboard
+  /**
+   * Remoção unificada — comportamento depende do tipo do farmer:
+   *
+   * 1. Farmer adicionado (não está na lista base): DELETE override → some do dashboard.
+   *    Confirma com a Pri porque a ação é destrutiva (precisa adicionar de novo pra voltar).
+   *
+   * 2. Farmer base COM override (squad ou hidden alterado): DELETE override → volta ao
+   *    estado original do código. Não precisa confirmar (reversível: basta editar de novo).
+   *
+   * 3. Farmer base SEM override (puro do código): o "Remover" funciona como atalho pra
+   *    ocultar do dashboard. Tecnicamente é o mesmo que clicar em "Ocultar", mas o botão
+   *    fica vermelho pra reforçar a intenção. Confirma porque o farmer some da view padrão.
+   */
+  const removeFarmer = async (farmer: CurrentFarmer) => {
+    const isAdded = !farmer.baseSquadId;
+    const hasOverride = farmer.source === "override";
+    const isBasePure = !isAdded && !hasOverride;
+
+    if (isAdded) {
       if (
         !window.confirm(
           `Remover "${farmer.nome}" do dashboard?\n\nEle foi adicionado pelo admin e não está na lista base. Após remover, ele só volta se for adicionado novamente.`
@@ -155,7 +170,19 @@ export default function FarmerManager({ accessKey }: Props) {
       ) {
         return;
       }
+    } else if (isBasePure) {
+      if (
+        !window.confirm(
+          `Ocultar "${farmer.nome}" do dashboard?\n\nEle faz parte da lista base do sistema e não pode ser apagado, mas ficará oculto. Você pode reativá-lo a qualquer momento clicando em "Mostrar".`
+        )
+      ) {
+        return;
+      }
+      // Não tem override pra deletar — só esconde
+      await toggleHidden(farmer);
+      return;
     }
+
     setRow(farmer.ownerId, "saving");
     try {
       const res = await fetch(
@@ -384,20 +411,24 @@ export default function FarmerManager({ accessKey }: Props) {
                         {f.hidden ? "Mostrar" : "Ocultar"}
                       </button>
 
-                      {f.source === "override" && (
-                        <button
-                          onClick={() => resetOverride(f)}
-                          disabled={state === "saving"}
-                          className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
-                          title={
-                            f.baseSquadId
-                              ? "Resetar para a squad original do código"
-                              : "Remover do dashboard"
-                          }
-                        >
-                          {f.baseSquadId ? "Resetar" : "Remover"}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => removeFarmer(f)}
+                        disabled={state === "saving"}
+                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                        title={
+                          !f.baseSquadId
+                            ? "Remover do sistema (foi adicionado pelo admin)"
+                            : f.source === "override"
+                            ? "Resetar para o estado original do código (volta squad/visibilidade do código)"
+                            : "Ocultar do dashboard (faz parte da lista base, não pode ser apagado)"
+                        }
+                      >
+                        {!f.baseSquadId
+                          ? "Remover"
+                          : f.source === "override"
+                          ? "Resetar"
+                          : "Remover"}
+                      </button>
 
                       {state === "saving" && (
                         <span className="text-xs text-psa-ink-soft">Salvando…</span>
