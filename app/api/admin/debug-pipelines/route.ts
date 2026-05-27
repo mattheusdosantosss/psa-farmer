@@ -102,10 +102,34 @@ export async function GET(req: NextRequest) {
       byPipeline.set(pipeId, entry);
     }
 
+    // Distribuição por sdrfarmer_responsavel — quantos deals por farmer + nome resolvido
+    const byFarmer = new Map<string, { total: number }>();
+    for (const d of dealsQualificados) {
+      const ownerId = d.properties.sdrfarmer_responsavel || "(sem owner)";
+      const entry = byFarmer.get(ownerId) ?? { total: 0 };
+      entry.total += 1;
+      byFarmer.set(ownerId, entry);
+    }
+
+    const ownerInfo = (ownerId: string) => {
+      const o = owners.get(ownerId);
+      const nome = o
+        ? `${o.firstName ?? ""} ${o.lastName ?? ""}`.trim() || o.email || `Owner ${o.id}`
+        : "(não encontrado em owners)";
+      return { ownerId, nome, email: o?.email || null };
+    };
+
     return NextResponse.json({
       period: { preset, from, to },
       totalDemandas: dealsQualificados.length,
       farmersAllowed: allowedOwnerIds.size,
+      farmersDoDash: resolved.map((f) => ({
+        ownerId: f.ownerId,
+        nome: f.nome,
+        email: f.email,
+        squadId: f.squadId,
+        source: f.source,
+      })),
       pipelinesDaConta: pipelines.map((p) => ({
         id: p.id,
         label: p.label,
@@ -117,6 +141,13 @@ export async function GET(req: NextRequest) {
           pipelineLabel: labelById.get(pipelineId) || "(label desconhecido)",
           total: info.total,
           examples: info.examples,
+        }))
+        .sort((a, b) => b.total - a.total),
+      byFarmer: Array.from(byFarmer.entries())
+        .map(([ownerId, info]) => ({
+          ...ownerInfo(ownerId),
+          total: info.total,
+          inAllowedList: allowedOwnerIds.has(ownerId),
         }))
         .sort((a, b) => b.total - a.total),
     });
