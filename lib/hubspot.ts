@@ -37,6 +37,12 @@ export type Deal = {
     pipedrive___data_de_qualificacao?: string;
     hs_lastmodifieddate?: string;
     origem_do_lead?: string;
+    /**
+     * "Valor total do contrato (Bruto) (GANHO)" no HubSpot.
+     * Só preenchido em deals fechados como ganho. É o BRUTO oficial pra dashboard.
+     * Note os underscores no internal name: __bruto____ganho_ (2-4-1).
+     */
+    valor_total_do_contrato__bruto____ganho_?: string;
     [key: string]: string | undefined;
   };
 };
@@ -174,6 +180,7 @@ const DEAL_PROPS = [
   "pipedrive___data_de_qualificacao",
   "hs_lastmodifieddate",
   "origem_do_lead",
+  "valor_total_do_contrato__bruto____ganho_",
 ];
 
 // Origens do Lead que definem "demanda válida" pra dashboard de farmer.

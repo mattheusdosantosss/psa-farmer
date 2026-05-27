@@ -287,6 +287,52 @@ export default function Page() {
         </div>
       </section>
 
+      {/* Aviso de integridade: ganhos sem o campo "Valor total bruto" preenchido.
+          Aparece pra todos. A Pri usa pra contatar o farmer e regularizar o cadastro. */}
+      {data && data.ganhosSemBruto.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex items-start gap-3">
+            <svg
+              className="flex-shrink-0 mt-0.5 h-5 w-5 text-amber-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-semibold mb-1">
+                {data.ganhosSemBruto.length === 1
+                  ? "1 ganho sem valor bruto preenchido"
+                  : `${data.ganhosSemBruto.length} ganhos sem valor bruto preenchido`}
+              </div>
+              <div className="text-amber-800 text-xs mb-2">
+                Os deals abaixo estão como ganho mas com o campo{" "}
+                <span className="font-mono">Valor total do contrato (Bruto) (GANHO)</span>{" "}
+                vazio. Confirmar com o farmer responsável e regularizar o cadastro.
+              </div>
+              <ul className="space-y-1 text-xs">
+                {data.ganhosSemBruto.map((g) => (
+                  <li key={g.dealId} className="flex flex-wrap gap-x-2">
+                    <span className="font-semibold text-amber-900">{g.dealname}</span>
+                    <span className="text-amber-700">— {g.farmerNome}</span>
+                    {g.closedate && (
+                      <span className="text-amber-600">
+                        ({new Date(g.closedate).toLocaleDateString("pt-BR")})
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Erro */}
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
