@@ -477,7 +477,6 @@ export default function FarmerManager({ accessKey }: Props) {
                 const dateDirty = editedDate !== undefined && editedDate !== (f.startDate ?? "");
                 const days = f.startDate ? daysBetween(f.startDate) : null;
                 const moved = f.baseSquadId && f.baseSquadId !== f.squadId ? f.baseSquadId : null;
-                const isAdded = !f.baseSquadId;
 
                 return (
                   <tr
@@ -491,11 +490,6 @@ export default function FarmerManager({ accessKey }: Props) {
                       <div className="min-w-[200px]">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-psa-ink">{f.nome}</span>
-                          {isAdded && (
-                            <span className="text-[9px] uppercase tracking-wider font-bold bg-psa-blue-soft text-psa-blue px-1.5 py-0.5 rounded">
-                              Adicionado
-                            </span>
-                          )}
                           {f.hidden && (
                             <span className="text-[9px] uppercase tracking-wider font-bold bg-psa-canvas text-psa-ink-soft px-1.5 py-0.5 rounded">
                               Oculto
