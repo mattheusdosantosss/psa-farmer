@@ -236,36 +236,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Toggle Negócios vs Tramitação — só aparece se pipeline CS
-                  ativa. Mesmo padrão visual do toggle Bruto/Líquido (ativa
-                  em laranja). Sem rótulo em cima, como solicitado. */}
-              {data?.meta.pipelineCsAtivo && (
-                <div className="flex items-end">
-                  <div className="inline-flex rounded-xl bg-white/[0.06] border border-white/10 p-1 text-sm">
-                    <button
-                      onClick={() => setSubTab("negocios")}
-                      className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
-                        subTab === "negocios"
-                          ? "bg-psa-orange text-white shadow-md"
-                          : "text-white/85 hover:text-white"
-                      }`}
-                    >
-                      Negócios
-                    </button>
-                    <button
-                      onClick={() => setSubTab("tramitacao")}
-                      className={`px-4 py-1.5 rounded-lg transition-all font-semibold ${
-                        subTab === "tramitacao"
-                          ? "bg-psa-orange text-white shadow-md"
-                          : "text-white/85 hover:text-white"
-                      }`}
-                    >
-                      Tramitação
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Botão Admin (gerenciar farmers e datas) */}
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/85 mb-2">
@@ -404,6 +374,34 @@ export default function Page() {
               <li key={e}>{e}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Sub-abas: Negócios vs Tramitação. Estilo discreto em fundo claro,
+          pra não competir visualmente com as abas principais de squad no hero.
+          Só renderiza se a pipeline CS estiver ativa — caso contrário, não há
+          o que alternar e mantemos só a visão de negócios. */}
+      {data?.meta.pipelineCsAtivo && (
+        <div className="inline-flex flex-wrap gap-1 rounded-xl bg-psa-surface border border-psa-line p-1">
+          {([
+            { id: "negocios" as const, label: "Negócios" },
+            { id: "tramitacao" as const, label: "Tramitação" },
+          ]).map((t) => {
+            const active = subTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setSubTab(t.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-psa-ink text-white"
+                    : "text-psa-ink-soft hover:text-psa-ink hover:bg-psa-canvas"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       )}
 
