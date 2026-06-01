@@ -69,6 +69,10 @@ export type FarmerRow = {
   lifetimeDemandas: number;
   /** Total de ganhos desde startDate */
   lifetimeGanhos: number;
+  /** Total de perdidos desde startDate (informativo, ainda sem uso na UI) */
+  lifetimePerdidos: number;
+  /** Total de "em aberto" desde startDate (ainda na esteira do funil) */
+  lifetimeEmAberto: number;
   /** Receita no modo atual do toggle (líquido ou bruto). É a que aparece na UI. */
   receita: number;
   /**
@@ -344,6 +348,8 @@ export function aggregate(input: {
       txConversao: 0,
       lifetimeDemandas: 0,
       lifetimeGanhos: 0,
+      lifetimePerdidos: 0,
+      lifetimeEmAberto: 0,
       receita: 0,
       receitaLiquida: 0,
       csDemandas: 0,
@@ -473,7 +479,13 @@ export function aggregate(input: {
       if (!Number.isFinite(qualMs) || qualMs < startMs) continue;
 
       row.lifetimeDemandas += 1;
-      if (isGanho(deal)) row.lifetimeGanhos += 1;
+      if (isGanho(deal)) {
+        row.lifetimeGanhos += 1;
+      } else if (isPerdido(deal)) {
+        row.lifetimePerdidos += 1;
+      } else if (isEmAberto(deal)) {
+        row.lifetimeEmAberto += 1;
+      }
     }
   }
 

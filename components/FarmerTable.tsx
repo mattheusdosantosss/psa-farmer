@@ -8,8 +8,17 @@ const brl = (n: number) =>
 const pct = (n: number) =>
   (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
 
-const diagnostico = (f: FarmerRow) =>
-  `${f.ganhos} ${f.ganhos === 1 ? "ganho" : "ganhos"} · conv. ${pct(f.txConversao)} · ${f.emAberto} em aberto`;
+/**
+ * Histórico do farmer: resumo lifetime (desde startDate).
+ * Retorna null se farmer não tem startDate (pré-requisito do admin).
+ *
+ * Usa lifetimeGanhos/lifetimeEmAberto + txConversao (que já é histórica).
+ * Os números aqui são INDEPENDENTES do filtro de período do dashboard.
+ */
+const historico = (f: FarmerRow): string | null => {
+  if (!f.startDate) return null;
+  return `${f.lifetimeGanhos} ${f.lifetimeGanhos === 1 ? "ganho" : "ganhos"} · ${f.lifetimeEmAberto} em aberto · conv. ${pct(f.txConversao)}`;
+};
 
 const daysSince = (iso?: string | null) => {
   if (!iso) return null;
@@ -54,7 +63,7 @@ type Props = {
 const numBtnClasses =
   "inline-block min-w-[2rem] px-1 rounded-md font-semibold hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer";
 
-const COLUNAS_NUMERICAS = 9; // Score, Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Tempo, Diagnóstico
+const COLUNAS_NUMERICAS = 9; // Score, Demandas, Ganhos, Perdidas, Em aberto, Dist, Conv, Receita, Tempo, Histórico
 
 // Posição -> rótulo "1º", "2º" ... (1-based)
 const rankLabel = (idx: number) => `${idx + 1}º`;
@@ -97,7 +106,7 @@ const HEAD = (
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Conv.%</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Receita</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Tempo</th>
-      <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Diagnóstico</th>
+      <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider" title="Resumo da vida toda como farmer (independe do filtro de período)">Histórico</th>
     </tr>
   </thead>
 );
@@ -275,9 +284,11 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                   )}
                 </td>
 
-                {/* Diagnóstico */}
+                {/* Histórico (lifetime desde startDate) */}
                 <td className="p-3 text-xs text-psa-ink-soft min-w-[170px]">
-                  {diagnostico(f)}
+                  {historico(f) ?? (
+                    <span className="italic">Sem histórico</span>
+                  )}
                 </td>
               </tr>
             ))}
