@@ -334,6 +334,53 @@ export function fetchDealsByClose(opts: {
 }
 
 // ============================================================
+// Lifetime: deals desde uma data mínima (sem filtro `to`)
+// ============================================================
+//
+// Usada pra calcular Tx Conversão histórica de cada farmer desde sua
+// startDate individual. Estratégia de uma chamada só:
+// - Buscamos todos os deals qualificados desde a startDate MAIS ANTIGA
+//   entre os farmers da lista.
+// - O agregador filtra cliente-side por farmer aplicando a startDate
+//   individual de cada um.
+//
+// Cache em memória (5 min) — esses dados raramente mudam em janela
+// curta e o ganho de latência é grande.
+
+type LifetimeCache = {
+  key: string;
+  data: Deal[];
+  expiresAt: number;
+};
+let lifetimeCache: LifetimeCache | null = null;
+const LIFETIME_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+
+export async function fetchDealsLifetimeByQualification(opts: {
+  fromMin: string; // "YYYY-MM-DD" - startDate mais antiga entre os farmers
+  ownerIds: string[];
+}): Promise<Deal[]> {
+  // Cache key: combina os ownerIds ordenados e a data mínima
+  const cacheKey = `${opts.fromMin}|${[...opts.ownerIds].sort().join(",")}`;
+  const now = Date.now();
+  if (lifetimeCache && lifetimeCache.key === cacheKey && lifetimeCache.expiresAt > now) {
+    return lifetimeCache.data;
+  }
+
+  const data = await fetchDealsByDateField({
+    from: opts.fromMin,
+    ownerIds: opts.ownerIds,
+    dateField: "pipedrive___data_de_qualificacao",
+  });
+
+  lifetimeCache = {
+    key: cacheKey,
+    data,
+    expiresAt: now + LIFETIME_CACHE_TTL_MS,
+  };
+  return data;
+}
+
+// ============================================================
 // Tickets (pipeline CS)
 // ============================================================
 

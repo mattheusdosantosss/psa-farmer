@@ -4,6 +4,7 @@ import {
   fetchCsTickets,
   fetchDealsByQualification,
   fetchDealsByClose,
+  fetchDealsLifetimeByQualification,
   getCsStages,
 } from "@/lib/hubspot";
 import { aggregate, RevenueMode } from "@/lib/aggregate";
@@ -95,9 +96,32 @@ export async function GET(req: NextRequest) {
       getAllAssignments(),
     ]);
 
+    // Tx Conversão HISTÓRICA: busca deals desde a startDate mais antiga
+    // entre os farmers permitidos. Filtramos cliente-side por farmer
+    // depois (no aggregate), aplicando a startDate individual.
+    //
+    // Se NENHUM farmer tem startDate definida, pulamos a busca: a tx
+    // conversão fica em 0 pra todos, conforme pré-requisito.
+    //
+    // Cache de 5min no fetchDealsLifetimeByQualification evita re-busca
+    // quando o usuário troca de filtro de período rapidamente.
+    let dealsLifetime: typeof dealsQualificados | undefined;
+    const allowedStartDates = Array.from(allowedOwnerIds)
+      .map((id) => startDates.get(id))
+      .filter((d): d is string => !!d);
+
+    if (allowedStartDates.length > 0) {
+      const fromMin = allowedStartDates.sort()[0]; // ISO YYYY-MM-DD ordena lexicograficamente
+      dealsLifetime = await fetchDealsLifetimeByQualification({
+        fromMin,
+        ownerIds: Array.from(allowedOwnerIds),
+      });
+    }
+
     const data = aggregate({
       dealsQualificados,
       dealsFechados,
+      dealsLifetime,
       tickets,
       owners,
       allowedOwnerIds,

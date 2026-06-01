@@ -56,7 +56,19 @@ export type FarmerRow = {
   ganhos: number;
   perdidos: number;
   emAberto: number;
+  /**
+   * Tx Conversão HISTÓRICA (vida toda como farmer, desde startDate).
+   * - Farmer COM startDate: ganhos lifetime / demandas lifetime
+   * - Farmer SEM startDate: 0 (pré-requisito não cumprido)
+   *
+   * Não é mais a tx do período: a coluna Conv.%, o critério 1 do Score
+   * e o diagnóstico textual usam todos esse mesmo valor.
+   */
   txConversao: number;
+  /** Total de demandas (qualificações) desde startDate */
+  lifetimeDemandas: number;
+  /** Total de ganhos desde startDate */
+  lifetimeGanhos: number;
   /** Receita no modo atual do toggle (líquido ou bruto). É a que aparece na UI. */
   receita: number;
   /**
@@ -230,11 +242,17 @@ function computeScore(input: {
   demandas: number;
   receita: number;
   diasAtivos: number | null;
+  /**
+   * Tx Conversão HISTÓRICA (0..1). Critério 1 usa esta — não recalcula
+   * a partir de ganhos/demandas do período. Os demais critérios continuam
+   * baseados no período.
+   */
+  txConversaoLifetime: number;
 }): number {
-  const { ganhos, demandas, receita, diasAtivos } = input;
+  const { ganhos, receita, diasAtivos, demandas, txConversaoLifetime } = input;
 
-  // 1) Conversão %
-  const convPct = demandas > 0 ? (ganhos / demandas) * 100 : 0;
+  // 1) Conversão % (HISTÓRICA — usa lifetime, não período)
+  const convPct = txConversaoLifetime * 100;
   const ptsConversao = Math.min(30, convPct * 1.5);
 
   // 2) Ganhos absolutos
@@ -262,6 +280,13 @@ export function aggregate(input: {
   dealsQualificados: Deal[];
   /** Deals fechados no período (ganhos+perdidos). Alimenta Ganhos, Perdidos e Receita. */
   dealsFechados: Deal[];
+  /**
+   * Deals lifetime (qualificados desde a startDate mais antiga, todos os
+   * estágios). Alimenta lifetimeDemandas/lifetimeGanhos por farmer, que
+   * por sua vez geram txConversao histórica e score.
+   * Pode ser undefined se nenhum farmer tem startDate definida ainda.
+   */
+  dealsLifetime?: Deal[];
   tickets: Ticket[];
   owners: Map<string, Owner>;
   allowedOwnerIds: Set<string>;
@@ -278,7 +303,7 @@ export function aggregate(input: {
   tagVocabulary?: FarmerTag[];
 }): DashboardData {
   const {
-    dealsQualificados, dealsFechados, tickets, owners, allowedOwnerIds, missingEmails,
+    dealsQualificados, dealsFechados, dealsLifetime, tickets, owners, allowedOwnerIds, missingEmails,
     revenueMode, pipelineCsAtivo, csStages, startDates, squadByOwnerId,
     tagAssignments, tagVocabulary,
   } = input;
@@ -317,6 +342,8 @@ export function aggregate(input: {
       perdidos: 0,
       emAberto: 0,
       txConversao: 0,
+      lifetimeDemandas: 0,
+      lifetimeGanhos: 0,
       receita: 0,
       receitaLiquida: 0,
       csDemandas: 0,
@@ -424,10 +451,41 @@ export function aggregate(input: {
     }
   }
 
-  // Derivadas: total CS, tx conversão, tx conclusão, diasAtivos e score
+  // Processa deals LIFETIME (vida toda como farmer, desde startDate)
+  // - Alimenta lifetimeDemandas e lifetimeGanhos por farmer
+  // - Apenas conta deals cuja data de qualificação >= startDate do farmer
+  // - Se farmer não tem startDate, lifetime fica zerado (pré-requisito)
+  if (dealsLifetime && dealsLifetime.length > 0) {
+    for (const deal of dealsLifetime) {
+      const ownerId = deal.properties.sdrfarmer_responsavel;
+      if (!ownerId) continue;
+      const row = byFarmer.get(ownerId);
+      if (!row || !row.startDate) continue; // sem startDate, sem lifetime
+
+      const qualDate = deal.properties.pipedrive___data_de_qualificacao;
+      if (!qualDate) continue;
+
+      // Compara apenas a parte de data (sem timezone) — o HubSpot pode
+      // entregar como ISO string ou epoch; new Date() resolve ambos.
+      // O importante é não contar deals anteriores à startDate do farmer.
+      const qualMs = new Date(qualDate).getTime();
+      const startMs = new Date(row.startDate).getTime();
+      if (!Number.isFinite(qualMs) || qualMs < startMs) continue;
+
+      row.lifetimeDemandas += 1;
+      if (isGanho(deal)) row.lifetimeGanhos += 1;
+    }
+  }
+
+  // Derivadas: total CS, tx conversão (HISTÓRICA), tx conclusão, diasAtivos e score
   const today = new Date();
   for (const row of byFarmer.values()) {
-    row.txConversao = row.demandas > 0 ? row.ganhos / row.demandas : 0;
+    // Tx Conversão agora é HISTÓRICA (lifetime desde startDate).
+    // Farmer sem startDate fica em 0 — é pré-requisito de configuração.
+    row.txConversao =
+      row.lifetimeDemandas > 0
+        ? row.lifetimeGanhos / row.lifetimeDemandas
+        : 0;
     row.csDemandas = row.csConcluidos + row.csCancelados + row.csEmTramite;
     row.csTxConclusao = row.csDemandas > 0 ? row.csConcluidos / row.csDemandas : 0;
 
@@ -448,6 +506,7 @@ export function aggregate(input: {
       demandas: row.demandas,
       receita: row.receitaLiquida,
       diasAtivos: row.diasAtivos,
+      txConversaoLifetime: row.txConversao, // já está em formato 0..1 e é histórica
     });
   }
 
