@@ -48,7 +48,6 @@ export const SQUADS: Squad[] = [
       "rafael.alves@profissionaissa.com",
       "leticia.santos@profissionaissa.com",
       "joao.marins@profissionaissa.com",
-      "francielle.inacio@profissionaissa.com",
       "bruna.machado@profissionaissa.com",
     ],
   },
