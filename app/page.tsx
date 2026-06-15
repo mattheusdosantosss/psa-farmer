@@ -376,25 +376,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* Aviso de e-mails não encontrados */}
-      {data && data.meta.missingEmails.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <div className="font-display font-semibold mb-1">
-            E-mails não encontrados no HubSpot
-          </div>
-          <div className="text-amber-800 text-xs">
-            Os seguintes farmers estão na lista oficial mas não foram
-            localizados como owners do HubSpot. Confira possíveis erros de
-            digitação em <code>lib/teams.ts</code>:
-          </div>
-          <ul className="mt-2 text-xs font-mono text-amber-900 list-disc list-inside">
-            {data.meta.missingEmails.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* === SUB-ABA: NEGÓCIOS === */}
       {subTab === "negocios" && (
       <>
