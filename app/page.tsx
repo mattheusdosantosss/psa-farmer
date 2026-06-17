@@ -208,6 +208,31 @@ export default function Page() {
                 <PeriodFilter value={period} onChange={handlePeriodChange} />
               </div>
 
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-sm font-semibold text-white/90 hover:bg-white/[0.12] hover:text-white transition-all disabled:opacity-60 disabled:cursor-wait"
+                title="Rebuscar os dados no HubSpot agora"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={loading ? "animate-spin" : ""}
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                {loading ? "Atualizando…" : "Atualizar"}
+              </button>
+
               <a
                 href={`/admin/farmers${accessKey ? `?key=${encodeURIComponent(accessKey)}` : ""}`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-sm font-semibold text-white/90 hover:bg-white/[0.12] hover:text-white transition-all"
