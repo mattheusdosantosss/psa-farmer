@@ -471,6 +471,7 @@ export default function Page() {
         <FarmerTable
           rows={filteredFarmers}
           loading={loading}
+          csAtivo={!!data?.meta.pipelineCsAtivo}
           onDrillDown={(farmer, kind) => setModal({ mode: "single", farmer, kind })}
         />
       </section>

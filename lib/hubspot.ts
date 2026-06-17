@@ -410,13 +410,17 @@ const STAGES_CACHE_TTL_MS = 60 * 60 * 1000;
 /**
  * Resolve os IDs de estágios da pipeline CS por categoria.
  *
- * Categorias:
- *  - abertos: estágios marcados como isClosed=false no HubSpot ("em trâmite")
- *  - concluidos: por nome contendo "concl" (case-insensitive), ou ENV
- *  - cancelados: por nome contendo "cancel" (case-insensitive), ou ENV
+ * Regra de negócio (definida pela operação), casa label-a-label dentro da
+ * pipeline CS — ENV sempre tem prioridade:
+ *  - abertos    = "demanda de tramitação" = etapas "Em andamento" + "Iniciar
+ *                 Trâmites". Conta como backlog AO VIVO (snapshot), sem filtro
+ *                 de data.
+ *  - concluidos = etapa "Aprovação Arquivo" (NÃO é a etapa "Concluído").
+ *                 Conta por entrada no estágio dentro do período.
+ *  - cancelados = etapa "Cancelado". Conta por entrada no estágio no período.
  *
- * Os demais estágios fechados (ex.: "Aprovação Arquivo", "Stand by") ficam
- * fora das três categorias e, portanto, não pesam nas métricas.
+ * As demais etapas (Conferência, Pagamento, Aguardando NF, Stand by,
+ * Concluído, etc.) ficam fora das três categorias e não pesam nas métricas.
  */
 async function resolveCsStages(): Promise<CsStagesResolved> {
   if (!PIPELINE_CS) {
@@ -439,29 +443,31 @@ async function resolveCsStages(): Promise<CsStagesResolved> {
     `/crm/v3/pipelines/tickets/${encodeURIComponent(PIPELINE_CS)}`
   );
 
-  const isClosed = (s: Stage) =>
-    s.metadata?.isClosed === true || s.metadata?.isClosed === "true";
-
   const norm = (s: string) =>
     s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  // Abertos: ENV tem prioridade; caso vazio, usa isClosed=false
+  // Abertos / demanda: exatamente "Em andamento" + "Iniciar Trâmites".
   const abertos = STAGES_ABERTOS_ENV
     ? STAGES_ABERTOS_ENV.split(",").map((s) => s.trim()).filter(Boolean)
-    : data.stages.filter((s) => !isClosed(s)).map((s) => s.id);
+    : data.stages
+        .filter((s) => {
+          const n = norm(s.label);
+          return n === "em andamento" || n === "iniciar tramites";
+        })
+        .map((s) => s.id);
 
-  // Concluídos: ENV tem prioridade; caso vazio, infere pelo label
+  // Concluídos: etapa "Aprovação Arquivo" (regra de negócio — não "Concluído").
   const concluidos = STAGE_CONCLUIDO_ENV
     ? STAGE_CONCLUIDO_ENV.split(",").map((s) => s.trim()).filter(Boolean)
     : data.stages
-        .filter((s) => isClosed(s) && norm(s.label).includes("conclu"))
+        .filter((s) => norm(s.label) === "aprovacao arquivo")
         .map((s) => s.id);
 
-  // Cancelados: idem
+  // Cancelados: etapa "Cancelado".
   const cancelados = STAGE_CANCELADO_ENV
     ? STAGE_CANCELADO_ENV.split(",").map((s) => s.trim()).filter(Boolean)
     : data.stages
-        .filter((s) => isClosed(s) && norm(s.label).includes("cancel"))
+        .filter((s) => norm(s.label).includes("cancel"))
         .map((s) => s.id);
 
   const value: CsStagesResolved = { abertos, concluidos, cancelados };
@@ -476,16 +482,15 @@ export async function getCsStages(): Promise<CsStagesResolved> {
 /**
  * Tickets na pipeline CS para o dashboard de tramitação.
  *
- * Semântica híbrida (acertada com o usuário):
- * - DEMANDAS / EM TRÂMITE / CANCELADOS: filtra por `createdate` no período.
- *   "Em trâmite" = criados no período E ainda abertos hoje.
- * - CONCLUÍDOS: filtra por quando o ticket ENTROU no estágio "Concluído"
- *   via `hs_v2_date_entered_<stageId>` (1 filterGroup por estágio).
- *   Isso é proposital — mede entrega no período, independente de quando o
- *   ticket foi criado.
+ * Semântica (regra de negócio da operação):
+ * - DEMANDA (abertos): SNAPSHOT ao vivo — todos os tickets que ESTÃO hoje em
+ *   "Em andamento" / "Iniciar Trâmites", sem filtro de data. É backlog atual.
+ * - CONCLUÍDOS ("Aprovação Arquivo") e CANCELADOS ("Cancelado"): filtra por
+ *   quando o ticket ENTROU no estágio (`hs_v2_date_entered_<stageId>`, 1
+ *   filterGroup por estágio) dentro do período. Mede entrega/cancelamento no
+ *   mês, independente de quando o ticket foi criado.
  *
- * Outros estágios fechados (Aprovação, Stand by) ficam fora — não pesam
- * nas métricas.
+ * As demais etapas ficam fora — não pesam nas métricas.
  *
  * Retorna [] se HUBSPOT_PIPELINE_CS não estiver configurado.
  */
@@ -515,7 +520,8 @@ export async function fetchCsTickets(opts?: {
       }
     : { propertyName: "hubspot_owner_id", operator: "HAS_PROPERTY" };
 
-  // Grupo ABERTOS: tickets criados no período E ainda em estágio aberto hoje.
+  // Grupo ABERTOS / DEMANDA: snapshot — tudo que está HOJE nesses estágios,
+  // sem filtro de data (backlog atual de tramitação).
   const grupoAbertos: Array<{ filters: Array<Record<string, unknown>> }> = [];
   if (stages.abertos.length > 0) {
     const filters: Array<Record<string, unknown>> = [
@@ -523,20 +529,6 @@ export async function fetchCsTickets(opts?: {
       { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.abertos },
       ownerFilter,
     ];
-    if (opts?.from) {
-      filters.push({
-        propertyName: "createdate",
-        operator: "GTE",
-        value: new Date(opts.from).getTime().toString(),
-      });
-    }
-    if (opts?.to) {
-      filters.push({
-        propertyName: "createdate",
-        operator: "LTE",
-        value: new Date(opts.to).getTime().toString(),
-      });
-    }
     grupoAbertos.push({ filters });
   }
 
@@ -566,32 +558,32 @@ export async function fetchCsTickets(opts?: {
     return [{ filters }];
   });
 
-  // Grupo CANCELADOS: continua por createdate por enquanto.
-  const grupoCancelados: Array<{ filters: Array<Record<string, unknown>> }> = [];
-  if (stages.cancelados.length > 0) {
+  // Grupos CANCELADOS: 1 por stageId, por entrada no estágio no período
+  // (mesma semântica de CONCLUÍDOS via hs_v2_date_entered_<stageId>).
+  const gruposCancelados = stages.cancelados.flatMap((stageId) => {
     const filters: Array<Record<string, unknown>> = [
       { propertyName: "hs_pipeline", operator: "EQ", value: PIPELINE_CS },
-      { propertyName: "hs_pipeline_stage", operator: "IN", values: stages.cancelados },
+      { propertyName: "hs_pipeline_stage", operator: "EQ", value: stageId },
       ownerFilter,
     ];
     if (opts?.from) {
       filters.push({
-        propertyName: "createdate",
+        propertyName: `hs_v2_date_entered_${stageId}`,
         operator: "GTE",
         value: new Date(opts.from).getTime().toString(),
       });
     }
     if (opts?.to) {
       filters.push({
-        propertyName: "createdate",
+        propertyName: `hs_v2_date_entered_${stageId}`,
         operator: "LTE",
         value: new Date(opts.to).getTime().toString(),
       });
     }
-    grupoCancelados.push({ filters });
-  }
+    return [{ filters }];
+  });
 
-  const filterGroups = [...grupoAbertos, ...gruposConcluidos, ...grupoCancelados];
+  const filterGroups = [...grupoAbertos, ...gruposConcluidos, ...gruposCancelados];
   if (filterGroups.length === 0) return [];
 
   const all: Ticket[] = [];

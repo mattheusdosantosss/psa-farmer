@@ -32,7 +32,6 @@ const HEAD = (
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Demandas</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Concluídos</th>
       <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Cancelados</th>
-      <th className="text-right p-4 font-display font-semibold text-xs uppercase tracking-wider">Em trâmite</th>
     </tr>
   </thead>
 );
@@ -46,7 +45,7 @@ function SkeletonRow() {
           <span className="skeleton h-4 w-32 inline-block" />
         </div>
       </td>
-      {Array.from({ length: 4 }).map((_, i) => (
+      {Array.from({ length: 3 }).map((_, i) => (
         <td key={i} className="p-4 text-right">
           <span className="skeleton h-4 w-12 inline-block" />
         </td>
@@ -92,41 +91,34 @@ export default function CsTramSection({
         )}
       </div>
 
-      {/* KPIs — mesma estrutura de 5 cards da seção de vendas */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* KPIs — demanda (snapshot) + finalizados do período */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Demandas"
           value={num(topo.demandas)}
           accent="blue"
-          hint="Tickets criados no período + em trâmite"
+          hint="Em andamento + Iniciar Trâmites (ao vivo)"
           loading={loading}
         />
         <KpiCard
           label="Concluídos"
           value={num(topo.concluidos)}
           accent="orange"
-          hint="Tickets entregues no período"
-          loading={loading}
-        />
-        <KpiCard
-          label="Sem entregas"
-          value={num(topo.semEntregas)}
-          accent="ink"
-          hint="Farmers sem ticket concluído"
-          loading={loading}
-        />
-        <KpiCard
-          label="Em trâmite"
-          value={num(topo.emTramite)}
-          accent="blue"
-          hint="Tickets ainda em andamento"
+          hint="Entraram em Aprovação Arquivo no período"
           loading={loading}
         />
         <KpiCard
           label="Cancelados"
           value={num(topo.cancelados)}
           accent="ink"
-          hint="Tickets cancelados no período"
+          hint="Entraram em Cancelado no período"
+          loading={loading}
+        />
+        <KpiCard
+          label="Sem entregas"
+          value={num(topo.semEntregas)}
+          accent="ink"
+          hint="Farmers sem conclusão no período"
           loading={loading}
         />
       </div>
@@ -172,25 +164,22 @@ export default function CsTramSection({
                         <span className="font-medium text-psa-ink">{f.nome}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-right tabular-nums text-psa-ink-soft">
-                      {f.csDemandas}
+                    <td className="p-4 text-right tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => onDrillDownTramite?.(f)}
+                        disabled={f.csDemandas === 0 || !onDrillDownTramite}
+                        className="inline-block min-w-[2rem] px-1 rounded-md font-semibold text-psa-ink-soft hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-psa-ink-soft"
+                        title={f.csDemandas > 0 ? "Ver tickets em tramitação" : ""}
+                      >
+                        {f.csDemandas}
+                      </button>
                     </td>
                     <td className="p-4 text-right tabular-nums font-semibold text-psa-orange">
                       {f.csConcluidos}
                     </td>
                     <td className="p-4 text-right tabular-nums text-psa-ink-soft">
                       {f.csCancelados}
-                    </td>
-                    <td className="p-4 text-right tabular-nums">
-                      <button
-                        type="button"
-                        onClick={() => onDrillDownTramite?.(f)}
-                        disabled={f.csEmTramite === 0 || !onDrillDownTramite}
-                        className="inline-block min-w-[2rem] px-1 rounded-md font-semibold text-psa-ink-soft hover:bg-psa-orange-soft hover:text-psa-orange transition-colors cursor-pointer disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-psa-ink-soft"
-                        title={f.csEmTramite > 0 ? "Ver tickets em trâmite" : ""}
-                      >
-                        {f.csEmTramite}
-                      </button>
                     </td>
                   </tr>
                 ))}

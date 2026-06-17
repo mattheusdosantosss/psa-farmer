@@ -81,11 +81,11 @@ export type FarmerRow = {
    */
   receitaLiquida: number;
   // Métricas da tramitação CS (espelham vendas)
-  csDemandas: number;     // concluídos + cancelados + em trâmite
-  csConcluidos: number;
-  csCancelados: number;
-  csEmTramite: number;
-  csTxConclusao: number;  // concluidos / csDemandas
+  csDemandas: number;     // backlog ao vivo: Em andamento + Iniciar Trâmites (== csEmTramite)
+  csConcluidos: number;   // entraram em "Aprovação Arquivo" no período
+  csCancelados: number;   // entraram em "Cancelado" no período
+  csEmTramite: number;    // idem csDemandas (mantido p/ drill-down ticketsEmTramite)
+  csTxConclusao: number;  // concluidos / (concluidos + cancelados)
   // Listas pra drill-down nos modais
   dealsGanhos: DealLite[];
   dealsPerdidos: DealLite[];
@@ -498,8 +498,12 @@ export function aggregate(input: {
       row.lifetimeDemandas > 0
         ? row.lifetimeGanhos / row.lifetimeDemandas
         : 0;
-    row.csDemandas = row.csConcluidos + row.csCancelados + row.csEmTramite;
-    row.csTxConclusao = row.csDemandas > 0 ? row.csConcluidos / row.csDemandas : 0;
+    // Demanda de tramitação = backlog AO VIVO (Em andamento + Iniciar Trâmites).
+    // É o mesmo conjunto de "em trâmite", então csDemandas === csEmTramite.
+    row.csDemandas = row.csEmTramite;
+    // Tx de conclusão entre os finalizados do período (concluídos vs cancelados).
+    const finalizados = row.csConcluidos + row.csCancelados;
+    row.csTxConclusao = finalizados > 0 ? row.csConcluidos / finalizados : 0;
 
     // Dias ativos a partir de startDate (admin)
     if (row.startDate) {

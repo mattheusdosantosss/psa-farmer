@@ -58,6 +58,8 @@ type Props = {
   rows: FarmerRow[];
   loading?: boolean;
   onDrillDown?: (farmer: FarmerRow, kind: ModalKind) => void;
+  /** Mostra a coluna "Tram." (demandas de tramitação) quando a pipeline CS está ativa. */
+  csAtivo?: boolean;
 };
 
 const numBtnClasses =
@@ -75,7 +77,7 @@ const scoreColor = (s: number) => {
   return "bg-psa-canvas text-psa-ink-soft";
 };
 
-function SkeletonRow() {
+function SkeletonRow({ csAtivo = false }: { csAtivo?: boolean }) {
   return (
     <tr className="border-t border-psa-line">
       <td className="p-3 text-center">
@@ -84,7 +86,7 @@ function SkeletonRow() {
       <td className="p-3">
         <span className="skeleton h-4 w-32 inline-block" />
       </td>
-      {Array.from({ length: COLUNAS_NUMERICAS - 1 }).map((_, i) => (
+      {Array.from({ length: COLUNAS_NUMERICAS - 1 + (csAtivo ? 1 : 0) }).map((_, i) => (
         <td key={i} className="p-3 text-right">
           <span className="skeleton h-4 w-10 inline-block" />
         </td>
@@ -93,7 +95,7 @@ function SkeletonRow() {
   );
 }
 
-const HEAD = (
+const head = (csAtivo: boolean) => (
   <thead className="bg-psa-ink text-white">
     <tr>
       <th className="text-center p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Score</th>
@@ -102,6 +104,14 @@ const HEAD = (
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Ganhos</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Perdidas</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Em aberto</th>
+      {csAtivo && (
+        <th
+          className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider"
+          title="Demandas de tramitação (Em andamento + Iniciar Trâmites, ao vivo)"
+        >
+          Tram.
+        </th>
+      )}
       <th className="text-left p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Dist.</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Conv.%</th>
       <th className="text-right p-3 font-display font-semibold text-[11px] uppercase tracking-wider">Receita</th>
@@ -111,7 +121,7 @@ const HEAD = (
   </thead>
 );
 
-export default function FarmerTable({ rows, loading = false, onDrillDown }: Props) {
+export default function FarmerTable({ rows, loading = false, onDrillDown, csAtivo = false }: Props) {
   const handleClick = (farmer: FarmerRow, kind: ModalKind) => {
     if (onDrillDown) onDrillDown(farmer, kind);
   };
@@ -120,10 +130,10 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
     return (
       <div className="rounded-2xl bg-psa-surface border border-psa-line shadow-card overflow-hidden">
         <table className="w-full text-sm">
-          {HEAD}
+          {head(csAtivo)}
           <tbody>
             {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonRow key={i} />
+              <SkeletonRow key={i} csAtivo={csAtivo} />
             ))}
           </tbody>
         </table>
@@ -148,7 +158,7 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
     <div className="rounded-2xl bg-psa-surface border border-psa-line shadow-card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          {HEAD}
+          {head(csAtivo)}
           <tbody>
             {rows.map((f, idx) => (
               <tr
@@ -234,6 +244,21 @@ export default function FarmerTable({ rows, loading = false, onDrillDown }: Prop
                     {f.emAberto}
                   </button>
                 </td>
+
+                {/* Tram. — demandas de tramitação (snapshot ao vivo) */}
+                {csAtivo && (
+                  <td className="p-3 text-right tabular-nums">
+                    <button
+                      type="button"
+                      onClick={() => handleClick(f, "tramite")}
+                      className={`${numBtnClasses} text-psa-blue`}
+                      disabled={f.csDemandas === 0}
+                      title={f.csDemandas > 0 ? "Ver tickets em tramitação" : ""}
+                    >
+                      {f.csDemandas}
+                    </button>
+                  </td>
+                )}
 
                 {/* Dist. */}
                 <td className="p-3">
