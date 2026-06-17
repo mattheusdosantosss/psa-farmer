@@ -37,6 +37,8 @@ export type Deal = {
     pipedrive___data_de_qualificacao?: string;
     hs_lastmodifieddate?: string;
     origem_do_lead?: string;
+    /** Motivo de fechamento perdido (closed_lost_reason). "Fora do MOA" é excluído das métricas. */
+    closed_lost_reason?: string;
     /**
      * "Valor total do contrato (Bruto) (GANHO)" no HubSpot.
      * Só preenchido em deals fechados como ganho. É o BRUTO oficial pra dashboard.
@@ -181,6 +183,9 @@ const DEAL_PROPS = [
   "hs_lastmodifieddate",
   "origem_do_lead",
   "valor_total_do_contrato__bruto___ganho_",
+  // Motivo de fechamento perdido — deals com "Fora do MOA" são excluídos das
+  // métricas (alinha com o relatório oficial do HubSpot).
+  "closed_lost_reason",
 ];
 
 // Origens do Lead que definem "demanda válida" pra dashboard de farmer.

@@ -307,10 +307,24 @@ export function aggregate(input: {
   tagVocabulary?: FarmerTag[];
 }): DashboardData {
   const {
-    dealsQualificados, dealsFechados, dealsLifetime, tickets, owners, allowedOwnerIds, missingEmails,
+    dealsQualificados: _dealsQualificados,
+    dealsFechados: _dealsFechados,
+    dealsLifetime: _dealsLifetime,
+    tickets, owners, allowedOwnerIds, missingEmails,
     revenueMode, pipelineCsAtivo, csStages, startDates, squadByOwnerId,
     tagAssignments, tagVocabulary,
   } = input;
+
+  // Deals perdidos com motivo "Fora do MOA" NÃO são demanda válida de farmer —
+  // o relatório oficial do HubSpot os exclui. Filtramos na entrada pra que
+  // saiam de TODAS as métricas (demandas, ganhos, perdidos, em aberto, lifetime),
+  // mantendo o funil consistente.
+  const MOTIVO_FORA_MOA = "Fora do MOA";
+  const semForaMoa = (deals: Deal[]) =>
+    deals.filter((d) => d.properties.closed_lost_reason !== MOTIVO_FORA_MOA);
+  const dealsQualificados = semForaMoa(_dealsQualificados);
+  const dealsFechados = semForaMoa(_dealsFechados);
+  const dealsLifetime = _dealsLifetime ? semForaMoa(_dealsLifetime) : undefined;
 
   // Index do vocabulário por nome normalizado pra resolver atribuições.
   // Se o vocab estiver vazio (ou tag foi apagada antes de desatribuir),
