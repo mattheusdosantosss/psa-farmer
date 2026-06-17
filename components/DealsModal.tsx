@@ -10,6 +10,16 @@ import type { DealLite, TicketLite } from "@/lib/aggregate";
  */
 export type AggregatedDealItem = DealLite & { ownerName: string };
 
+// Portal (Hub) ID do HubSpot — usado pra montar o link de cada registro.
+// Override via NEXT_PUBLIC_HUBSPOT_PORTAL_ID; default é o portal da PSA.
+const HUBSPOT_PORTAL_ID = process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID || "49656171";
+
+// Link direto pro registro no HubSpot. objectTypeId: deals = 0-3, tickets = 0-5.
+const hubspotRecordUrl = (objeto: "deal" | "ticket", id: string) =>
+  `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/${
+    objeto === "deal" ? "0-3" : "0-5"
+  }/${id}`;
+
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -167,19 +177,25 @@ export default function DealsModal({
             <ol className="divide-y divide-white/10">
               {isTickets
                 ? (tickets ?? []).map((t, i) => (
-                    <li
-                      key={t.id}
-                      className="px-6 py-3 flex items-center gap-4 hover:bg-white/[0.03] transition-colors"
-                    >
-                      <span className="text-xs font-mono text-white/40 tabular-nums w-8">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 min-w-0 text-sm text-white/90 truncate">
-                        {t.subject}
-                      </div>
-                      <div className="text-xs text-white/60 tabular-nums whitespace-nowrap">
-                        {fmtDate(t.createdate)}
-                      </div>
+                    <li key={t.id} className="hover:bg-white/[0.03] transition-colors">
+                      <a
+                        href={hubspotRecordUrl("ticket", t.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group px-6 py-3 flex items-center gap-4"
+                        title="Abrir ticket no HubSpot"
+                      >
+                        <span className="text-xs font-mono text-white/40 tabular-nums w-8">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <div className="flex-1 min-w-0 text-sm text-white/90 truncate group-hover:text-psa-orange group-hover:underline">
+                          {t.subject}
+                        </div>
+                        <span className="text-white/30 group-hover:text-psa-orange text-xs">↗</span>
+                        <div className="text-xs text-white/60 tabular-nums whitespace-nowrap">
+                          {fmtDate(t.createdate)}
+                        </div>
+                      </a>
                     </li>
                   ))
                 : (dealsToRender ?? []).map((d, i) => {
@@ -187,29 +203,37 @@ export default function DealsModal({
                       ? (d as AggregatedDealItem).ownerName
                       : null;
                     return (
-                      <li
-                        key={d.id}
-                        className="px-6 py-3 flex items-center gap-4 hover:bg-white/[0.03] transition-colors"
-                      >
-                        <span className="text-xs font-mono text-white/40 tabular-nums w-8">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-white/90 truncate">{d.dealname}</div>
-                          {ownerName && (
-                            <div className="mt-0.5 text-[11px] text-white/50 truncate">
-                              {ownerName}
+                      <li key={d.id} className="hover:bg-white/[0.03] transition-colors">
+                        <a
+                          href={hubspotRecordUrl("deal", d.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group px-6 py-3 flex items-center gap-4"
+                          title="Abrir negócio no HubSpot"
+                        >
+                          <span className="text-xs font-mono text-white/40 tabular-nums w-8">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-white/90 truncate group-hover:text-psa-orange group-hover:underline">
+                              {d.dealname}
+                            </div>
+                            {ownerName && (
+                              <div className="mt-0.5 text-[11px] text-white/50 truncate">
+                                {ownerName}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-white/30 group-hover:text-psa-orange text-xs">↗</span>
+                          {isGanhos && (
+                            <div className="text-xs font-medium text-psa-orange tabular-nums whitespace-nowrap">
+                              {brl(d.amount)}
                             </div>
                           )}
-                        </div>
-                        {isGanhos && (
-                          <div className="text-xs font-medium text-psa-orange tabular-nums whitespace-nowrap">
-                            {brl(d.amount)}
+                          <div className="text-xs text-white/60 tabular-nums whitespace-nowrap w-16 text-right">
+                            {fmtDate(isGanhos ? d.closedate : d.createdate)}
                           </div>
-                        )}
-                        <div className="text-xs text-white/60 tabular-nums whitespace-nowrap w-16 text-right">
-                          {fmtDate(isGanhos ? d.closedate : d.createdate)}
-                        </div>
+                        </a>
                       </li>
                     );
                   })}
