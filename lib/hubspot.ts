@@ -210,6 +210,13 @@ const brStartOfDayMs = (yyyymmdd: string): number =>
 const brEndOfDayMs = (yyyymmdd: string): number =>
   new Date(yyyymmdd).getTime() + BR_OFFSET_MS + 86_400_000 - 1;
 
+// Limites de dia em UTC puro (sem ajuste de fuso). Pra campos DATE (sem hora),
+// o HubSpot guarda meia-noite UTC representando o dia-calendário; aqui NÃO se
+// aplica offset, senão a borda GTE+3h excluiria deals do 1º dia do período.
+const utcStartOfDayMs = (yyyymmdd: string): number => new Date(yyyymmdd).getTime();
+const utcEndOfDayMs = (yyyymmdd: string): number =>
+  new Date(yyyymmdd).getTime() + 86_400_000 - 1;
+
 // Campos de data possíveis pra recortar o período
 type DealDateField =
   | "pipedrive___data_de_qualificacao"
@@ -236,6 +243,10 @@ async function fetchDealsByDateField(opts: {
   stages?: string[];
 }): Promise<Deal[]> {
   const { from, to, ownerIds, dateField, stages } = opts;
+
+  // "data_de_qualificacao" é campo DATE (sem hora) → limites em UTC puro.
+  // "closedate" é datetime real → mantém o ajuste de fuso BRT.
+  const isDateOnly = dateField === "pipedrive___data_de_qualificacao";
 
   const filters: Array<{ propertyName: string; operator: string; value?: string; values?: string[] }> = [
     { propertyName: dateField, operator: "HAS_PROPERTY" },
@@ -264,7 +275,7 @@ async function fetchDealsByDateField(opts: {
     filters.push({
       propertyName: dateField,
       operator: "GTE",
-      value: brStartOfDayMs(from).toString(),
+      value: (isDateOnly ? utcStartOfDayMs(from) : brStartOfDayMs(from)).toString(),
     });
   }
   if (to) {
@@ -274,7 +285,7 @@ async function fetchDealsByDateField(opts: {
     filters.push({
       propertyName: dateField,
       operator: "LTE",
-      value: brEndOfDayMs(to).toString(),
+      value: (isDateOnly ? utcEndOfDayMs(to) : brEndOfDayMs(to)).toString(),
     });
   }
 
