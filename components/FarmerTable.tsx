@@ -208,8 +208,16 @@ export default function FarmerTable({ rows, loading = false, onDrillDown, csAtiv
                   </div>
                 </td>
 
-                <td className="p-3 text-right tabular-nums text-psa-ink-soft">
-                  {f.demandas}
+                <td className="p-3 text-right tabular-nums">
+                  <button
+                    type="button"
+                    onClick={() => handleClick(f, "demandas")}
+                    className={`${numBtnClasses} text-psa-ink-soft`}
+                    disabled={f.demandas === 0}
+                    title={f.demandas > 0 ? "Ver demandas (qualificados no período)" : ""}
+                  >
+                    {f.demandas}
+                  </button>
                 </td>
                 <td className="p-3 text-right tabular-nums">
                   <button

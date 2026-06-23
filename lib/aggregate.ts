@@ -25,6 +25,7 @@ export type DealLite = {
   amount: number;
   closedate?: string;   // ISO ou undefined
   createdate?: string;  // ISO ou undefined
+  qualdate?: string;    // data de qualificação (ISO) — usada na lista de Demandas
 };
 
 // Representação enxuta de um ticket CS para listagens
@@ -87,6 +88,7 @@ export type FarmerRow = {
   csEmTramite: number;    // idem csDemandas (mantido p/ drill-down ticketsEmTramite)
   csTxConclusao: number;  // concluidos / (concluidos + cancelados)
   // Listas pra drill-down nos modais
+  dealsDemandas: DealLite[];
   dealsGanhos: DealLite[];
   dealsPerdidos: DealLite[];
   dealsEmAberto: DealLite[];
@@ -371,6 +373,7 @@ export function aggregate(input: {
       csCancelados: 0,
       csEmTramite: 0,
       csTxConclusao: 0,
+      dealsDemandas: [],
       dealsGanhos: [],
       dealsPerdidos: [],
       dealsEmAberto: [],
@@ -388,14 +391,16 @@ export function aggregate(input: {
     if (!row) continue;
 
     row.demandas += 1;
+    const lite: DealLite = {
+      id: deal.id,
+      dealname: deal.properties.dealname || "(sem nome)",
+      amount: parseAmount(deal, revenueMode),
+      closedate: deal.properties.closedate,
+      createdate: deal.properties.createdate,
+      qualdate: deal.properties.pipedrive___data_de_qualificacao,
+    };
+    row.dealsDemandas.push(lite);
     if (isEmAberto(deal)) {
-      const lite: DealLite = {
-        id: deal.id,
-        dealname: deal.properties.dealname || "(sem nome)",
-        amount: parseAmount(deal, revenueMode),
-        closedate: deal.properties.closedate,
-        createdate: deal.properties.createdate,
-      };
       row.emAberto += 1;
       row.dealsEmAberto.push(lite);
     }

@@ -30,7 +30,7 @@ const fmtDate = (iso?: string) => {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 };
 
-export type ModalKind = "ganhos" | "perdidos" | "aberto" | "tramite";
+export type ModalKind = "demandas" | "ganhos" | "perdidos" | "aberto" | "tramite";
 
 type Props = {
   open: boolean;
@@ -46,6 +46,7 @@ type Props = {
 };
 
 const TITLES: Record<ModalKind, { titulo: string; itemSing: string; itemPlural: string }> = {
+  demandas: { titulo: "Demandas (qualificados no período)", itemSing: "demanda", itemPlural: "demandas" },
   ganhos: { titulo: "Negócios ganhos", itemSing: "negócio fechado", itemPlural: "negócios fechados" },
   perdidos: { titulo: "Negócios perdidos", itemSing: "negócio perdido", itemPlural: "negócios perdidos" },
   aberto: { titulo: "Negócios em aberto", itemSing: "negócio em aberto", itemPlural: "negócios em aberto" },
@@ -231,7 +232,13 @@ export default function DealsModal({
                             </div>
                           )}
                           <div className="text-xs text-white/60 tabular-nums whitespace-nowrap w-16 text-right">
-                            {fmtDate(isGanhos ? d.closedate : d.createdate)}
+                            {fmtDate(
+                              kind === "demandas"
+                                ? d.qualdate
+                                : isGanhos
+                                ? d.closedate
+                                : d.createdate
+                            )}
                           </div>
                         </a>
                       </li>

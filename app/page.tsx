@@ -529,7 +529,9 @@ export default function Page() {
         kind={modal?.kind ?? "ganhos"}
         deals={
           modal?.mode === "single"
-            ? modal.kind === "ganhos"
+            ? modal.kind === "demandas"
+              ? modal.farmer.dealsDemandas
+              : modal.kind === "ganhos"
               ? modal.farmer.dealsGanhos
               : modal.kind === "perdidos"
               ? modal.farmer.dealsPerdidos
